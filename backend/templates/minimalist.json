@@ -1,0 +1,38 @@
+{
+  "id": "minimalist",
+  "name": "Minimalist",
+  "description": "Simple, elegant design with plenty of white space",
+  "ats_friendly": true,
+  "fonts": {
+    "heading": "Helvetica",
+    "body": "Helvetica",
+    "heading_size": 16,
+    "body_size": 10
+  },
+  "colors": {
+    "primary": "#1a1a1a",
+    "accent": "#666666",
+    "text": "#333333"
+  },
+  "spacing": {
+    "section": 16,
+    "item": 8,
+    "margin_top": 1.0,
+    "margin_bottom": 1.0,
+    "margin_left": 1.0,
+    "margin_right": 1.0
+  },
+  "sections": [
+    "header",
+    "summary",
+    "experience",
+    "education",
+    "skills"
+  ],
+  "style": {
+    "header_alignment": "left",
+    "section_headers_uppercase": false,
+    "use_bullets": false,
+    "line_spacing": 1.5
+  }
+}

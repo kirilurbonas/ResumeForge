@@ -1,0 +1,37 @@
+.suggestions-panel {
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.suggestions-panel h3 {
+  color: #667eea;
+  margin-bottom: 15px;
+}
+
+.suggestions-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #f7f7f7;
+  border-left: 4px solid #667eea;
+  border-radius: 4px;
+}
+
+.suggestion-item p {
+  margin: 0;
+  color: #333;
+  line-height: 1.6;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}

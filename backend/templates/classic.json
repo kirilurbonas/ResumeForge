@@ -1,0 +1,38 @@
+{
+  "id": "classic",
+  "name": "Classic",
+  "description": "Traditional, professional format suitable for all industries",
+  "ats_friendly": true,
+  "fonts": {
+    "heading": "Times New Roman",
+    "body": "Times New Roman",
+    "heading_size": 16,
+    "body_size": 12
+  },
+  "colors": {
+    "primary": "#000000",
+    "accent": "#000000",
+    "text": "#000000"
+  },
+  "spacing": {
+    "section": 10,
+    "item": 5,
+    "margin_top": 0.75,
+    "margin_bottom": 0.75,
+    "margin_left": 0.75,
+    "margin_right": 0.75
+  },
+  "sections": [
+    "header",
+    "summary",
+    "experience",
+    "education",
+    "skills"
+  ],
+  "style": {
+    "header_alignment": "left",
+    "section_headers_uppercase": false,
+    "use_bullets": true,
+    "line_spacing": 1.0
+  }
+}

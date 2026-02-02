@@ -1,0 +1,40 @@
+{
+  "id": "ats_friendly",
+  "name": "ATS-Friendly",
+  "description": "Optimized for Applicant Tracking Systems with simple formatting",
+  "ats_friendly": true,
+  "fonts": {
+    "heading": "Arial",
+    "body": "Arial",
+    "heading_size": 14,
+    "body_size": 11
+  },
+  "colors": {
+    "primary": "#000000",
+    "accent": "#000000",
+    "text": "#000000"
+  },
+  "spacing": {
+    "section": 8,
+    "item": 4,
+    "margin_top": 0.5,
+    "margin_bottom": 0.5,
+    "margin_left": 0.5,
+    "margin_right": 0.5
+  },
+  "sections": [
+    "header",
+    "summary",
+    "skills",
+    "experience",
+    "education"
+  ],
+  "style": {
+    "header_alignment": "left",
+    "section_headers_uppercase": false,
+    "use_bullets": true,
+    "line_spacing": 1.0,
+    "no_tables": true,
+    "standard_fonts_only": true
+  }
+}
