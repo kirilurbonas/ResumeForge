@@ -82,7 +82,7 @@ An intelligent resume analysis and optimization system that helps job seekers im
 
 1. Clone the repository:
 ```bash
-cd Aiport2
+cd ResumeForge
 ```
 
 2. Create a `.env` file:
