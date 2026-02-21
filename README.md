@@ -1,6 +1,6 @@
 # ResumeForge
 
-[![CI](https://github.com/yourusername/ResumeForge/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/ResumeForge/actions/workflows/ci.yml)
+[![CI](https://github.com/kirilurbonas/ResumeForge/actions/workflows/ci.yml/badge.svg)](https://github.com/kirilurbonas/ResumeForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An intelligent resume analysis and optimization system that helps job seekers improve their resumes. Upload your resume, get AI-powered analysis, ATS optimization suggestions, skills gap analysis, format improvements, select from professional templates, and generate polished resumes in DOC or PDF format.
