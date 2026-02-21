@@ -18,6 +18,8 @@ from app.services.resume_generator import ResumeGenerator
 from app.services.template_engine import TemplateEngine
 from app.services.storage import storage
 from app.services.llm_service import initialize_llm_service, llm_service
+from app.services.cover_letter_generator import CoverLetterGenerator
+from app.services.interview_prep import InterviewPrepService
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -35,6 +37,8 @@ job_matcher = JobMatcher()
 format_optimizer = FormatOptimizer()
 resume_generator = ResumeGenerator()
 template_engine = TemplateEngine()
+cover_letter_generator = CoverLetterGenerator()
+interview_prep_service = InterviewPrepService()
 
 # Initialize LLM service
 try:
@@ -79,7 +83,39 @@ class TemplateResponse(BaseModel):
     name: str
     description: str
     ats_friendly: bool
+    industry: Optional[str] = None
     preview_url: Optional[str] = None
+
+
+class CoverLetterRequest(BaseModel):
+    job_description: str = Field(..., min_length=10)
+    company_name: Optional[str] = None
+    tone: Optional[str] = Field("professional", description="Writing tone: professional, friendly, formal")
+    length: Optional[str] = Field("medium", description="Letter length: short, medium, long")
+
+
+class InterviewQuestionsRequest(BaseModel):
+    job_description: str = Field(..., min_length=10)
+    question_types: Optional[List[str]] = Field(["behavioral", "technical", "situational"], description="Types of questions to generate")
+
+
+class AnswerRequest(BaseModel):
+    question: str = Field(..., min_length=5)
+    job_description: Optional[str] = None
+
+
+class VersionCreateRequest(BaseModel):
+    change_description: Optional[str] = None
+
+
+class ResumeUpdateRequest(BaseModel):
+    industry: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class TemplateCustomizeRequest(BaseModel):
+    template_id: str
+    customizations: dict = Field(..., description="Template customization parameters")
 
 
 @router.get("/health")
@@ -366,3 +402,245 @@ async def generate_resume(
     except Exception as e:
         logger.error(f"Error generating resume: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error generating resume: {str(e)}")
+
+
+# Version Management Endpoints
+@router.post("/resume/{resume_id}/version")
+async def create_version(resume_id: str, request: VersionCreateRequest):
+    """Create a new version of a resume."""
+    resume = storage.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    try:
+        new_version = storage.create_version(resume_id, request.change_description)
+        if not new_version:
+            raise HTTPException(status_code=500, detail="Failed to create version")
+        
+        return {
+            "resume_id": resume_id,
+            "version": new_version.version,
+            "message": "Version created successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error creating version: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error creating version: {str(e)}")
+
+
+@router.get("/resume/{resume_id}/versions")
+async def list_versions(resume_id: str):
+    """List all versions of a resume."""
+    versions = storage.list_versions(resume_id)
+    if versions is None:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    return {
+        "resume_id": resume_id,
+        "versions": [v.dict() for v in versions]
+    }
+
+
+@router.get("/resume/{resume_id}/version/{version}")
+async def get_version(resume_id: str, version: int):
+    """Get a specific version of a resume."""
+    resume_version = storage.get_version(resume_id, version)
+    if not resume_version:
+        raise HTTPException(status_code=404, detail="Resume version not found")
+    
+    return {
+        "id": resume_version.id,
+        "filename": resume_version.filename,
+        "version": resume_version.version,
+        "uploaded_at": resume_version.uploaded_at.isoformat(),
+        "contact_info": resume_version.contact_info.dict(),
+        "summary": resume_version.summary,
+        "experience": [exp.dict() for exp in resume_version.experience],
+        "education": [edu.dict() for edu in resume_version.education],
+        "skills": [skill.dict() for skill in resume_version.skills],
+        "certifications": [cert.dict() for cert in resume_version.certifications]
+    }
+
+
+@router.put("/resume/{resume_id}")
+async def update_resume(resume_id: str, request: ResumeUpdateRequest):
+    """Update resume metadata (industry, tags)."""
+    resume = storage.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    try:
+        if request.industry is not None:
+            resume.industry = request.industry
+        if request.tags is not None:
+            resume.tags = request.tags
+        
+        storage.save(resume)
+        return {
+            "resume_id": resume_id,
+            "industry": resume.industry,
+            "tags": resume.tags,
+            "message": "Resume updated successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error updating resume: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error updating resume: {str(e)}")
+
+
+@router.get("/resumes")
+async def list_resumes(industry: Optional[str] = None, tag: Optional[str] = None):
+    """List all resumes, optionally filtered by industry or tag."""
+    if industry:
+        resumes = storage.list_by_industry(industry)
+    elif tag:
+        resumes = storage.list_by_tag(tag)
+    else:
+        resumes = storage.list_all()
+    
+    return {
+        "count": len(resumes),
+        "resumes": [
+            {
+                "id": r.id,
+                "filename": r.filename,
+                "uploaded_at": r.uploaded_at.isoformat(),
+                "version": r.version,
+                "industry": r.industry,
+                "tags": r.tags
+            }
+            for r in resumes
+        ]
+    }
+
+
+# Cover Letter Endpoints
+@router.post("/resume/{resume_id}/cover-letter")
+async def generate_cover_letter(resume_id: str, request: CoverLetterRequest):
+    """Generate a cover letter for a resume and job description."""
+    resume = storage.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    try:
+        result = cover_letter_generator.generate(
+            resume=resume,
+            job_description=request.job_description,
+            company_name=request.company_name,
+            tone=request.tone,
+            length=request.length
+        )
+        return {
+            "resume_id": resume_id,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error generating cover letter: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error generating cover letter: {str(e)}")
+
+
+# Interview Preparation Endpoints
+@router.post("/resume/{resume_id}/interview-questions")
+async def generate_interview_questions(resume_id: str, request: InterviewQuestionsRequest):
+    """Generate interview questions based on resume and job description."""
+    resume = storage.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    try:
+        result = interview_prep_service.generate_questions(
+            resume=resume,
+            job_description=request.job_description,
+            question_types=request.question_types
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error generating interview questions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error generating interview questions: {str(e)}")
+
+
+@router.post("/resume/{resume_id}/interview-answer")
+async def generate_answer(resume_id: str, request: AnswerRequest):
+    """Generate a suggested answer for an interview question."""
+    resume = storage.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    try:
+        result = interview_prep_service.generate_answer_suggestions(
+            resume=resume,
+            question=request.question,
+            job_description=request.job_description
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error generating answer: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error generating answer: {str(e)}")
+
+
+# Template Endpoints
+@router.get("/templates", response_model=List[TemplateResponse])
+async def list_templates(industry: Optional[str] = None):
+    """List available resume templates, optionally filtered by industry."""
+    templates = template_engine.list_templates(industry=industry)
+    return [
+        TemplateResponse(
+            id=t['id'],
+            name=t['name'],
+            description=t['description'],
+            ats_friendly=t.get('ats_friendly', True),
+            industry=t.get('industry')
+        )
+        for t in templates
+    ]
+
+
+@router.get("/industries")
+async def list_industries():
+    """List all industries that have specific templates."""
+    industries = template_engine.get_industries()
+    return {
+        "industries": industries,
+        "count": len(industries)
+    }
+
+
+@router.post("/resume/{resume_id}/generate-custom")
+async def generate_custom_resume(
+    resume_id: str,
+    request: TemplateCustomizeRequest,
+    format: str = Query("doc", description="Output format: doc or pdf")
+):
+    """Generate resume with custom template parameters."""
+    resume = storage.get(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    template = template_engine.get_template(request.template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail=f"Template '{request.template_id}' not found")
+    
+    # Merge customizations with template
+    custom_template = {**template, **request.customizations}
+    
+    try:
+        # Generate resume with custom template
+        if format == 'doc':
+            file_content = resume_generator.generate_doc(resume, request.template_id, custom_template)
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            filename = f"{resume.contact_info.name.replace(' ', '_')}_resume_custom.docx"
+        else:  # pdf
+            file_content = resume_generator.generate_pdf(resume, request.template_id, custom_template)
+            media_type = "application/pdf"
+            filename = f"{resume.contact_info.name.replace(' ', '_')}_resume_custom.pdf"
+        
+        logger.info(f"Generated custom {format.upper()} resume for {resume_id}")
+        
+        return Response(
+            content=file_content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating custom resume: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error generating custom resume: {str(e)}")

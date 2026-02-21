@@ -52,15 +52,29 @@ class TemplateEngine:
         """
         return self.templates.get(template_id)
     
-    def list_templates(self) -> List[Dict]:
+    def list_templates(self, industry: Optional[str] = None) -> List[Dict]:
         """
-        List all available templates.
+        List all available templates, optionally filtered by industry.
         
+        Args:
+            industry: Optional industry filter (e.g., "tech", "finance", "healthcare")
+            
         Returns:
             List of template dictionaries
         """
-        return list(self.templates.values())
+        templates = list(self.templates.values())
+        if industry:
+            templates = [t for t in templates if t.get('industry') == industry or t.get('industry') is None]
+        return templates
     
     def template_exists(self, template_id: str) -> bool:
         """Check if a template exists."""
         return template_id in self.templates
+    
+    def get_industries(self) -> List[str]:
+        """Get list of industries that have specific templates."""
+        industries = set()
+        for template in self.templates.values():
+            if template.get('industry'):
+                industries.add(template['industry'])
+        return sorted(list(industries))

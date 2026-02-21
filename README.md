@@ -12,9 +12,14 @@ An intelligent resume analysis and optimization system that helps job seekers im
 - **ATS Optimization**: Optimize your resume for Applicant Tracking Systems
 - **Skills Gap Analysis**: Compare your resume against job descriptions
 - **Format Improvement**: AI-powered format optimization suggestions
-- **Template Selection**: Choose from 4 professional templates (Modern, Classic, ATS-Friendly, Minimalist)
+- **Template Selection**: Choose from 7+ professional templates including industry-specific options
 - **Resume Generation**: Export polished resumes in DOC or PDF format
 - **Job Matching**: Match your resume to specific job descriptions
+- **Version Management**: Track and manage multiple versions of your resume
+- **Cover Letter Generation**: AI-powered cover letter creation based on your resume and job description
+- **Interview Preparation**: Generate interview questions and suggested answers
+- **Template Customization**: Customize templates with advanced parameters
+- **Industry-Specific Templates**: Templates optimized for Tech, Finance, Healthcare, and more
 
 
 ## 🏗️ Architecture
@@ -222,10 +227,29 @@ npm run dev
 
 #### Templates & Generation
 
-- `GET /api/templates` - List available templates
+- `GET /api/templates` - List available templates (query param: industry)
 - `GET /api/templates/{id}` - Get template details
+- `GET /api/industries` - List industries with specific templates
 - `POST /api/resume/{id}/improve-format` - Apply format improvements
 - `POST /api/resume/{id}/generate` - Generate resume (query params: template_id, format=doc|pdf)
+- `POST /api/resume/{id}/generate-custom` - Generate resume with custom template parameters
+
+#### Version Management
+
+- `POST /api/resume/{id}/version` - Create a new version of a resume
+- `GET /api/resume/{id}/versions` - List all versions of a resume
+- `GET /api/resume/{id}/version/{version}` - Get a specific version
+- `PUT /api/resume/{id}` - Update resume metadata (industry, tags)
+- `GET /api/resumes` - List all resumes (query params: industry, tag)
+
+#### Cover Letters
+
+- `POST /api/resume/{id}/cover-letter` - Generate a cover letter
+
+#### Interview Preparation
+
+- `POST /api/resume/{id}/interview-questions` - Generate interview questions
+- `POST /api/resume/{id}/interview-answer` - Get suggested answer for a question
 
 #### System
 
@@ -369,11 +393,11 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 - [x] AI-powered analysis
 - [x] ATS optimization
 - [x] Template-based resume generation
-- [ ] Multiple resume versions management
-- [ ] Industry-specific templates
-- [ ] Cover letter generation
-- [ ] Interview question preparation
-- [ ] Advanced template customization
-- [ ] Resume version history
+- [x] Multiple resume versions management
+- [x] Industry-specific templates
+- [x] Cover letter generation
+- [x] Interview question preparation
+- [x] Advanced template customization
+- [x] Resume version history
 - [ ] User authentication
 - [ ] Cloud storage integration

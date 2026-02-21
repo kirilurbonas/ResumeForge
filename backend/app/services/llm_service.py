@@ -2,6 +2,7 @@
 
 from typing import List, Optional, AsyncIterator
 import os
+import asyncio
 from abc import ABC, abstractmethod
 
 
@@ -140,6 +141,78 @@ Suggestions:"""
                     yield chunk.choices[0].delta.content
         except Exception as e:
             yield f"Error generating suggestions: {str(e)}"
+    
+    def generate_text(self, prompt: str, max_tokens: int = 1000) -> str:
+        """
+        Generate text from a prompt (synchronous wrapper).
+        
+        Args:
+            prompt: Text prompt
+            max_tokens: Maximum tokens to generate
+            
+        Returns:
+            Generated text
+        """
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're in an async context, we need to handle differently
+                # For now, create a simple sync version
+                return self._generate_text_sync(prompt, max_tokens)
+            else:
+                return loop.run_until_complete(self._generate_text_async(prompt, max_tokens))
+        except RuntimeError:
+            return self._generate_text_sync(prompt, max_tokens)
+    
+    def _generate_text_sync(self, prompt: str, max_tokens: int) -> str:
+        """Synchronous text generation."""
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=max_tokens
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"Error generating text: {str(e)}"
+    
+    async def _generate_text_async(self, prompt: str, max_tokens: int) -> str:
+        """Async text generation."""
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+        
+        try:
+            response = await asyncio.to_thread(
+                self.client.chat.completions.create,
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=max_tokens
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"Error generating text: {str(e)}"
     
     async def generate_action_verbs(self, job_description: str = None) -> List[str]:
         """Generate strong action verb suggestions."""

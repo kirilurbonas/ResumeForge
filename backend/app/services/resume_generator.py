@@ -21,13 +21,14 @@ class ResumeGenerator:
     def __init__(self):
         self.template_engine = TemplateEngine()
     
-    def generate_doc(self, resume: Resume, template_id: str = "modern") -> bytes:
+    def generate_doc(self, resume: Resume, template_id: str = "modern", custom_template: Optional[dict] = None) -> bytes:
         """
         Generate resume as DOCX file.
         
         Args:
             resume: Resume object
             template_id: Template ID to use
+            custom_template: Optional custom template dict to override defaults
             
         Returns:
             DOCX file as bytes
@@ -35,6 +36,10 @@ class ResumeGenerator:
         template = self.template_engine.get_template(template_id)
         if not template:
             template = self.template_engine.get_template("modern")  # Fallback
+        
+        # Merge custom template if provided
+        if custom_template:
+            template = {**template, **custom_template}
         
         # Create document
         doc = Document()
@@ -48,7 +53,7 @@ class ResumeGenerator:
         file_stream.seek(0)
         return file_stream.read()
     
-    def generate_pdf(self, resume: Resume, template_id: str = "modern") -> bytes:
+    def generate_pdf(self, resume: Resume, template_id: str = "modern", custom_template: Optional[dict] = None) -> bytes:
         """
         Generate resume as PDF file.
         
@@ -62,6 +67,10 @@ class ResumeGenerator:
         template = self.template_engine.get_template(template_id)
         if not template:
             template = self.template_engine.get_template("modern")  # Fallback
+        
+        # Merge custom template if provided
+        if custom_template:
+            template = {**template, **custom_template}
         
         # Create PDF
         buffer = io.BytesIO()

@@ -48,6 +48,14 @@ class Certification(BaseModel):
     credential_id: Optional[str] = None
 
 
+class ResumeVersion(BaseModel):
+    """Represents a version of a resume."""
+    version: int
+    created_at: datetime
+    changes: Optional[str] = None  # Description of changes
+    resume_data: dict  # Snapshot of resume data
+
+
 class Resume(BaseModel):
     id: str
     filename: str
@@ -61,3 +69,14 @@ class Resume(BaseModel):
     languages: Optional[List[str]] = None
     projects: Optional[List[dict]] = None
     raw_text: Optional[str] = None
+    version: int = 1  # Current version number
+    versions: Optional[List[ResumeVersion]] = None  # Version history
+    industry: Optional[str] = None  # Industry category
+    tags: Optional[List[str]] = None  # Tags for organization
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.versions is None:
+            self.versions = []
+        if self.tags is None:
+            self.tags = []

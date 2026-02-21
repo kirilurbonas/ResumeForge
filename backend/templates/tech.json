@@ -1,0 +1,42 @@
+{
+  "id": "tech",
+  "name": "Tech Industry",
+  "description": "Optimized for technology roles with emphasis on technical skills and projects",
+  "ats_friendly": true,
+  "industry": "tech",
+  "fonts": {
+    "heading": "Arial",
+    "body": "Calibri",
+    "heading_size": 16,
+    "body_size": 10
+  },
+  "colors": {
+    "primary": "#1a1a1a",
+    "accent": "#0066cc",
+    "text": "#333333"
+  },
+  "spacing": {
+    "section": 10,
+    "item": 5,
+    "margin_top": 0.5,
+    "margin_bottom": 0.5,
+    "margin_left": 0.5,
+    "margin_right": 0.5
+  },
+  "sections": [
+    "header",
+    "summary",
+    "technical_skills",
+    "experience",
+    "projects",
+    "education",
+    "certifications"
+  ],
+  "style": {
+    "header_alignment": "left",
+    "section_headers_uppercase": false,
+    "use_bullets": true,
+    "line_spacing": 1.1,
+    "highlight_technical_skills": true
+  }
+}
