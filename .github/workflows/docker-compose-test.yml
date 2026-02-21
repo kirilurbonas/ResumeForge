@@ -1,0 +1,27 @@
+name: Docker Compose Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create .env file
+      run: |
+        cp .env.example .env
+        echo "OPENAI_API_KEY=test_key" >> .env
+    
+    - name: Test Docker Compose
+      run: |
+        docker-compose config
+    
+    - name: Build Docker Compose services
+      run: |
+        docker-compose build --no-cache

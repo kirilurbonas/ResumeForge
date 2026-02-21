@@ -3,8 +3,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Form
 from fastapi.responses import Response, StreamingResponse
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import os
+import logging
 from datetime import datetime
 
 from app.services.resume_parser import ResumeParser
@@ -17,6 +18,13 @@ from app.services.resume_generator import ResumeGenerator
 from app.services.template_engine import TemplateEngine
 from app.services.storage import storage
 from app.services.llm_service import initialize_llm_service, llm_service
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Constants
+MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 10 * 1024 * 1024))  # 10MB default
+ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.doc'}
 
 # Initialize services
 resume_parser = ResumeParser()
@@ -32,7 +40,7 @@ template_engine = TemplateEngine()
 try:
     initialize_llm_service()
 except Exception as e:
-    print(f"Warning: LLM service not initialized: {e}")
+    logger.warning(f"LLM service not initialized: {e}")
 
 router = APIRouter()
 
@@ -63,7 +71,7 @@ class ATSOptimizeRequest(BaseModel):
 
 
 class JobMatchRequest(BaseModel):
-    job_description: str
+    job_description: str = Field(..., min_length=10, description="Job description text (minimum 10 characters)")
 
 
 class TemplateResponse(BaseModel):
@@ -85,26 +93,46 @@ async def upload_resume(file: UploadFile = File(...)):
     """
     Upload and parse a resume.
     
-    Supported formats: PDF, DOCX
+    Supported formats: PDF, DOCX, DOC
+    Maximum file size: 10MB (configurable via MAX_FILE_SIZE env var)
     """
     try:
         # Validate file type
         if not file.filename:
             raise HTTPException(status_code=400, detail="Filename is required")
         
-        if not (file.filename.lower().endswith('.pdf') or 
-                file.filename.lower().endswith('.docx') or
-                file.filename.lower().endswith('.doc')):
-            raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF or DOCX.")
+        # Check file extension
+        file_ext = os.path.splitext(file.filename.lower())[1]
+        if file_ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file format. Supported formats: {', '.join(ALLOWED_EXTENSIONS)}"
+            )
         
         # Read file content
         file_content = await file.read()
+        
+        # Validate file size
+        file_size = len(file_content)
+        if file_size > MAX_FILE_SIZE:
+            max_size_mb = MAX_FILE_SIZE / (1024 * 1024)
+            raise HTTPException(
+                status_code=400,
+                detail=f"File size ({file_size / (1024 * 1024):.2f}MB) exceeds maximum allowed size ({max_size_mb}MB)"
+            )
+        
+        if file_size == 0:
+            raise HTTPException(status_code=400, detail="File is empty")
+        
+        logger.info(f"Processing resume upload: {file.filename} ({file_size} bytes)")
         
         # Parse resume
         resume = resume_parser.parse(file_content, file.filename)
         
         # Save to storage
         storage.save(resume)
+        
+        logger.info(f"Successfully parsed and saved resume: {resume.id}")
         
         return ResumeResponse(
             id=resume.id,
@@ -116,9 +144,13 @@ async def upload_resume(file: UploadFile = File(...)):
             education_count=len(resume.education),
             skills_count=len(resume.skills)
         )
+    except HTTPException:
+        raise
     except ValueError as e:
+        logger.error(f"Validation error during resume upload: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Error processing resume: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")
 
 
@@ -185,10 +217,19 @@ async def match_job(resume_id: str, request: JobMatchRequest):
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
+    # Validate job description
+    if not request.job_description or len(request.job_description.strip()) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Job description must be at least 10 characters long"
+        )
+    
     try:
+        logger.info(f"Matching resume {resume_id} to job description")
         result = job_matcher.match(resume, request.job_description)
         return result
     except Exception as e:
+        logger.error(f"Error matching resume: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error matching resume: {str(e)}")
 
 
@@ -213,7 +254,7 @@ async def get_suggestions(resume_id: str):
                 )
                 suggestions.append(llm_suggestions)
             except Exception as e:
-                print(f"Error getting LLM suggestions: {e}")
+                logger.warning(f"Error getting LLM suggestions: {e}")
         
         # Add format optimizer suggestions
         format_suggestions = format_optimizer.get_formatting_suggestions(resume)
@@ -311,6 +352,8 @@ async def generate_resume(
             media_type = "application/pdf"
             filename = f"{resume.contact_info.name.replace(' ', '_')}_resume.pdf"
         
+        logger.info(f"Generated {format.upper()} resume for {resume_id} using template {template_id}")
+        
         return Response(
             content=file_content,
             media_type=media_type,
@@ -318,5 +361,8 @@ async def generate_resume(
                 "Content-Disposition": f"attachment; filename={filename}"
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error generating resume: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error generating resume: {str(e)}")

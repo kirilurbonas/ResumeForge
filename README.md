@@ -1,8 +1,11 @@
 # ResumeForge
 
+[![CI](https://github.com/yourusername/ResumeForge/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/ResumeForge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An intelligent resume analysis and optimization system that helps job seekers improve their resumes. Upload your resume, get AI-powered analysis, ATS optimization suggestions, skills gap analysis, format improvements, select from professional templates, and generate polished resumes in DOC or PDF format.
 
-## 🚀 Features
+## ✨ Key Features
 
 - **Resume Parsing**: Extract structured data from PDF/DOCX resumes
 - **AI-Powered Analysis**: Get strengths, weaknesses, and ATS compatibility scores
@@ -12,6 +15,7 @@ An intelligent resume analysis and optimization system that helps job seekers im
 - **Template Selection**: Choose from 4 professional templates (Modern, Classic, ATS-Friendly, Minimalist)
 - **Resume Generation**: Export polished resumes in DOC or PDF format
 - **Job Matching**: Match your resume to specific job descriptions
+
 
 ## 🏗️ Architecture
 
@@ -82,6 +86,7 @@ An intelligent resume analysis and optimization system that helps job seekers im
 
 1. Clone the repository:
 ```bash
+git clone https://github.com/yourusername/ResumeForge.git
 cd ResumeForge
 ```
 
@@ -164,11 +169,15 @@ npm run dev
 | `LLM_MODEL` | Model name (e.g., `gpt-3.5-turbo`) | `gpt-3.5-turbo` |
 | `EMBEDDING_MODEL` | Embedding model name | `all-MiniLM-L6-v2` |
 | `VITE_API_URL` | Backend API URL for frontend | `http://localhost:8000/api` |
+| `MAX_FILE_SIZE` | Maximum file upload size in bytes | `10485760` (10MB) |
+| `CORS_ORIGINS` | Comma-separated list of allowed origins | `http://localhost:3000,http://localhost:5173` |
 
 ### Supported File Types
 
-- PDF (`.pdf`)
-- Microsoft Word (`.docx`, `.doc`)
+- PDF (`.pdf`) - Maximum size: 10MB
+- Microsoft Word (`.docx`, `.doc`) - Maximum size: 10MB
+
+**Note**: File size limits can be configured via the `MAX_FILE_SIZE` environment variable.
 
 ## 📖 Usage
 
@@ -236,6 +245,8 @@ docker-compose build
 2. **Set production environment variables**:
 ```bash
 # Edit docker-compose.yml or use .env file
+# Ensure OPENAI_API_KEY is set
+# Update CORS_ORIGINS for your domain
 ```
 
 3. **Run in production mode**:
@@ -243,12 +254,25 @@ docker-compose build
 docker-compose up -d
 ```
 
+4. **Check service health**:
+```bash
+curl http://localhost:8000/api/health
+```
+
+### Security Considerations
+
+- **API Keys**: Never commit API keys to version control. Use environment variables or secrets management.
+- **CORS**: Configure `CORS_ORIGINS` appropriately for production to restrict access.
+- **File Uploads**: File size limits are enforced (default 10MB). Adjust `MAX_FILE_SIZE` as needed.
+- **Rate Limiting**: Consider adding rate limiting for production deployments.
+- **HTTPS**: Always use HTTPS in production environments.
+
 ## 💻 Development
 
 ### Project Structure
 
 ```
-resume-forge/
+ResumeForge/
 ├── backend/
 │   ├── app/
 │   │   ├── api/          # API routes
@@ -264,9 +288,42 @@ resume-forge/
 │   │   └── services/     # API clients
 │   ├── package.json
 │   └── Dockerfile
+├── .github/
+│   └── workflows/        # CI/CD workflows
 ├── docker-compose.yml
+├── .env.example          # Environment variables template
+├── CONTRIBUTING.md        # Contribution guidelines
+├── LICENSE                # MIT License
 └── README.md
 ```
+
+### Code Quality
+
+- **Backend**: Python code follows PEP 8 style guide with type hints
+- **Frontend**: React best practices with functional components
+- **Logging**: Structured logging for debugging and monitoring
+- **Error Handling**: Comprehensive error handling with meaningful messages
+
+### Running Tests
+
+```bash
+# Backend linting
+cd backend
+pip install flake8
+flake8 app --max-line-length=100
+
+# Frontend build check
+cd frontend
+npm run build
+```
+
+### Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+- Code style and standards
+- Commit message conventions
+- Pull request process
+- Reporting issues
 
 ## 🔮 Future Enhancements
 
@@ -279,7 +336,15 @@ resume-forge/
 
 ## 📝 License
 
-This project is open source and available under the MIT License.
+This project is open source and available under the [MIT License](LICENSE).
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## 📧 Support
+
+For issues, questions, or feature requests, please open an issue on GitHub.
 
 ## 🙏 Acknowledgments
 
@@ -290,4 +355,25 @@ This project is open source and available under the MIT License.
 
 ---
 
+## 📊 Project Status
+
+**Current Version**: 1.0.0
+
+**Status**: Active Development
+
 **Note**: ResumeForge is a portfolio project demonstrating AI-powered resume analysis, full-stack development, and ML integration. For production use, consider additional security, scalability, and monitoring features.
+
+## 🎯 Roadmap
+
+- [x] Basic resume parsing (PDF/DOCX)
+- [x] AI-powered analysis
+- [x] ATS optimization
+- [x] Template-based resume generation
+- [ ] Multiple resume versions management
+- [ ] Industry-specific templates
+- [ ] Cover letter generation
+- [ ] Interview question preparation
+- [ ] Advanced template customization
+- [ ] Resume version history
+- [ ] User authentication
+- [ ] Cloud storage integration
