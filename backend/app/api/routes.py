@@ -8,6 +8,9 @@ import os
 import logging
 from datetime import datetime
 
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
 from app.services.resume_parser import ResumeParser
 from app.services.resume_analyzer import ResumeAnalyzer
 from app.services.ats_optimizer import ATSOptimizer
@@ -16,10 +19,12 @@ from app.services.job_matcher import JobMatcher
 from app.services.format_optimizer import FormatOptimizer
 from app.services.resume_generator import ResumeGenerator
 from app.services.template_engine import TemplateEngine
-from app.services.storage import storage
+from app.services.db_storage import DatabaseStorage
 from app.services.llm_service import initialize_llm_service, llm_service
 from app.services.cover_letter_generator import CoverLetterGenerator
 from app.services.interview_prep import InterviewPrepService
+from app.database import get_db, User
+from app.services.auth_service import get_current_user
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -47,6 +52,11 @@ except Exception as e:
     logger.warning(f"LLM service not initialized: {e}")
 
 router = APIRouter()
+
+# Dependency to get storage
+def get_storage(db: Session = Depends(get_db)) -> DatabaseStorage:
+    """Get database storage instance."""
+    return DatabaseStorage(db)
 
 
 # Request/Response models
@@ -120,12 +130,16 @@ class TemplateCustomizeRequest(BaseModel):
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint (public, no auth required)."""
     return {"status": "healthy", "service": "resume-forge"}
 
 
 @router.post("/resume/upload", response_model=ResumeResponse)
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """
     Upload and parse a resume.
     
@@ -165,8 +179,8 @@ async def upload_resume(file: UploadFile = File(...)):
         # Parse resume
         resume = resume_parser.parse(file_content, file.filename)
         
-        # Save to storage
-        storage.save(resume)
+        # Save to storage with user_id
+        resume = storage.save(resume, current_user.id)
         
         logger.info(f"Successfully parsed and saved resume: {resume.id}")
         
@@ -191,9 +205,13 @@ async def upload_resume(file: UploadFile = File(...)):
 
 
 @router.get("/resume/{resume_id}")
-async def get_resume(resume_id: str):
+async def get_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Get parsed resume data."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -211,9 +229,13 @@ async def get_resume(resume_id: str):
 
 
 @router.post("/resume/{resume_id}/analyze", response_model=AnalysisResponse)
-async def analyze_resume(resume_id: str):
+async def analyze_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Run full analysis on resume."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -233,9 +255,14 @@ async def analyze_resume(resume_id: str):
 
 
 @router.post("/resume/{resume_id}/ats-optimize")
-async def optimize_ats(resume_id: str, request: ATSOptimizeRequest):
+async def optimize_ats(
+    resume_id: str,
+    request: ATSOptimizeRequest,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Get ATS optimization suggestions."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -247,9 +274,14 @@ async def optimize_ats(resume_id: str, request: ATSOptimizeRequest):
 
 
 @router.post("/resume/{resume_id}/match-job")
-async def match_job(resume_id: str, request: JobMatchRequest):
+async def match_job(
+    resume_id: str,
+    request: JobMatchRequest,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Match resume to job description."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -270,9 +302,13 @@ async def match_job(resume_id: str, request: JobMatchRequest):
 
 
 @router.get("/resume/{resume_id}/suggestions")
-async def get_suggestions(resume_id: str):
+async def get_suggestions(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Get improvement suggestions."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -306,9 +342,13 @@ async def get_suggestions(resume_id: str):
 
 
 @router.delete("/resume/{resume_id}")
-async def delete_resume(resume_id: str):
+async def delete_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Delete a resume."""
-    success = storage.delete(resume_id)
+    success = storage.delete(resume_id, current_user.id)
     if not success:
         raise HTTPException(status_code=404, detail="Resume not found")
     return {"message": "Resume deleted successfully"}
@@ -345,9 +385,13 @@ async def get_template(template_id: str):
 
 
 @router.post("/resume/{resume_id}/improve-format")
-async def improve_format(resume_id: str):
+async def improve_format(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Apply format improvements to resume."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -362,10 +406,12 @@ async def improve_format(resume_id: str):
 async def generate_resume(
     resume_id: str,
     template_id: str = Query(..., description="Template ID to use"),
-    format: str = Query("doc", description="Output format: doc or pdf")
+    format: str = Query("doc", description="Output format: doc or pdf"),
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
 ):
     """Generate resume in selected template and format."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -406,14 +452,19 @@ async def generate_resume(
 
 # Version Management Endpoints
 @router.post("/resume/{resume_id}/version")
-async def create_version(resume_id: str, request: VersionCreateRequest):
+async def create_version(
+    resume_id: str,
+    request: VersionCreateRequest,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Create a new version of a resume."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
     try:
-        new_version = storage.create_version(resume_id, request.change_description)
+        new_version = storage.create_version(resume_id, current_user.id, request.change_description)
         if not new_version:
             raise HTTPException(status_code=500, detail="Failed to create version")
         
@@ -428,9 +479,13 @@ async def create_version(resume_id: str, request: VersionCreateRequest):
 
 
 @router.get("/resume/{resume_id}/versions")
-async def list_versions(resume_id: str):
+async def list_versions(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """List all versions of a resume."""
-    versions = storage.list_versions(resume_id)
+    versions = storage.list_versions(resume_id, current_user.id)
     if versions is None:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -441,9 +496,14 @@ async def list_versions(resume_id: str):
 
 
 @router.get("/resume/{resume_id}/version/{version}")
-async def get_version(resume_id: str, version: int):
+async def get_version(
+    resume_id: str,
+    version: int,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Get a specific version of a resume."""
-    resume_version = storage.get_version(resume_id, version)
+    resume_version = storage.get_version(resume_id, version, current_user.id)
     if not resume_version:
         raise HTTPException(status_code=404, detail="Resume version not found")
     
@@ -462,9 +522,14 @@ async def get_version(resume_id: str, version: int):
 
 
 @router.put("/resume/{resume_id}")
-async def update_resume(resume_id: str, request: ResumeUpdateRequest):
+async def update_resume(
+    resume_id: str,
+    request: ResumeUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Update resume metadata (industry, tags)."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -474,7 +539,7 @@ async def update_resume(resume_id: str, request: ResumeUpdateRequest):
         if request.tags is not None:
             resume.tags = request.tags
         
-        storage.save(resume)
+        storage.save(resume, current_user.id)
         return {
             "resume_id": resume_id,
             "industry": resume.industry,
@@ -487,14 +552,19 @@ async def update_resume(resume_id: str, request: ResumeUpdateRequest):
 
 
 @router.get("/resumes")
-async def list_resumes(industry: Optional[str] = None, tag: Optional[str] = None):
+async def list_resumes(
+    industry: Optional[str] = None,
+    tag: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """List all resumes, optionally filtered by industry or tag."""
     if industry:
-        resumes = storage.list_by_industry(industry)
+        resumes = storage.list_by_industry(industry, current_user.id)
     elif tag:
-        resumes = storage.list_by_tag(tag)
+        resumes = storage.list_by_tag(tag, current_user.id)
     else:
-        resumes = storage.list_all()
+        resumes = storage.list_all(current_user.id)
     
     return {
         "count": len(resumes),
@@ -514,9 +584,14 @@ async def list_resumes(industry: Optional[str] = None, tag: Optional[str] = None
 
 # Cover Letter Endpoints
 @router.post("/resume/{resume_id}/cover-letter")
-async def generate_cover_letter(resume_id: str, request: CoverLetterRequest):
+async def generate_cover_letter(
+    resume_id: str,
+    request: CoverLetterRequest,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Generate a cover letter for a resume and job description."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -539,9 +614,14 @@ async def generate_cover_letter(resume_id: str, request: CoverLetterRequest):
 
 # Interview Preparation Endpoints
 @router.post("/resume/{resume_id}/interview-questions")
-async def generate_interview_questions(resume_id: str, request: InterviewQuestionsRequest):
+async def generate_interview_questions(
+    resume_id: str,
+    request: InterviewQuestionsRequest,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Generate interview questions based on resume and job description."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -558,9 +638,14 @@ async def generate_interview_questions(resume_id: str, request: InterviewQuestio
 
 
 @router.post("/resume/{resume_id}/interview-answer")
-async def generate_answer(resume_id: str, request: AnswerRequest):
+async def generate_answer(
+    resume_id: str,
+    request: AnswerRequest,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
+):
     """Generate a suggested answer for an interview question."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
@@ -607,10 +692,12 @@ async def list_industries():
 async def generate_custom_resume(
     resume_id: str,
     request: TemplateCustomizeRequest,
-    format: str = Query("doc", description="Output format: doc or pdf")
+    format: str = Query("doc", description="Output format: doc or pdf"),
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage)
 ):
     """Generate resume with custom template parameters."""
-    resume = storage.get(resume_id)
+    resume = storage.get(resume_id, current_user.id)
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     

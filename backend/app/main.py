@@ -6,6 +6,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.api.routes import router
+from app.api.auth_routes import router as auth_router
+from app.database import init_db
 
 # Configure logging
 logging.basicConfig(
@@ -36,7 +38,17 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router, prefix="/api", tags=["authentication"])
 app.include_router(router, prefix="/api", tags=["api"])
+
+# Initialize database
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database and log startup information."""
+    init_db()
+    logger.info("ResumeForge API starting up...")
+    logger.info("Database initialized")
+    logger.info(f"API Documentation available at /docs")
 
 
 @app.exception_handler(Exception)

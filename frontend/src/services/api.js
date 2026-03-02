@@ -167,4 +167,63 @@ export const templateAPI = {
   }
 };
 
+export const authAPI = {
+  register: async (email, username, password) => {
+    const response = await api.post('/auth/register', {
+      email,
+      username,
+      password
+    });
+    return response.data;
+  },
+
+  login: async (email, password) => {
+    const response = await api.post('/auth/login', {
+      email,
+      password
+    });
+    return response.data;
+  },
+
+  getCurrentUser: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No token found');
+    }
+    const response = await api.get('/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
+  }
+};
+
+// Add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

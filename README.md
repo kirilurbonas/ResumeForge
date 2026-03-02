@@ -64,11 +64,15 @@ An intelligent resume analysis and optimization system that helps job seekers im
 
 ### Backend
 - **FastAPI**: Modern Python web framework
+- **SQLAlchemy**: Database ORM (SQLite for development, PostgreSQL/MySQL for production)
+- **JWT**: Authentication with python-jose
+- **Bcrypt**: Password hashing
 - **sentence-transformers**: For resume/job description embeddings
 - **ChromaDB**: Vector database for semantic matching
 - **PyPDF2 / python-docx**: Resume parsing and DOC generation
 - **reportlab**: PDF generation
 - **OpenAI API**: LLM for analysis and suggestions
+- **Boto3**: AWS S3 integration for cloud storage
 
 ### Frontend
 - **React + Vite**: UI framework
@@ -176,6 +180,12 @@ npm run dev
 | `VITE_API_URL` | Backend API URL for frontend | `http://localhost:8000/api` |
 | `MAX_FILE_SIZE` | Maximum file upload size in bytes | `10485760` (10MB) |
 | `CORS_ORIGINS` | Comma-separated list of allowed origins | `http://localhost:3000,http://localhost:5173` |
+| `DATABASE_URL` | Database connection string | `sqlite:///./resumeforge.db` |
+| `STORAGE_TYPE` | Storage type: `local` or `s3` | `local` |
+| `S3_BUCKET_NAME` | AWS S3 bucket name (if using S3) | Required for S3 |
+| `AWS_ACCESS_KEY_ID` | AWS access key (if using S3) | Required for S3 |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key (if using S3) | Required for S3 |
+| `AWS_REGION` | AWS region (if using S3) | `us-east-1` |
 
 ### Supported File Types
 
@@ -185,6 +195,14 @@ npm run dev
 **Note**: File size limits can be configured via the `MAX_FILE_SIZE` environment variable.
 
 ## 📖 Usage
+
+### Getting Started
+
+1. **Register an account**: Create a new account with your email and username
+2. **Login**: Use your credentials to login
+3. **Upload your resume**: Upload your resume file (PDF or DOCX)
+4. **Analyze and optimize**: Use the analysis tools to improve your resume
+5. **Generate**: Create polished resumes with professional templates
 
 ### Uploading a Resume
 
@@ -290,6 +308,9 @@ curl http://localhost:8000/api/health
 - **File Uploads**: File size limits are enforced (default 10MB). Adjust `MAX_FILE_SIZE` as needed.
 - **Rate Limiting**: Consider adding rate limiting for production deployments.
 - **HTTPS**: Always use HTTPS in production environments.
+- **Database**: For production, use PostgreSQL or MySQL instead of SQLite.
+- **Cloud Storage**: Configure S3 or other cloud storage for file persistence.
+- **JWT Secret**: Use a strong, randomly generated secret key for JWT tokens in production.
 
 ## 💻 Development
 
@@ -399,5 +420,5 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 - [x] Interview question preparation
 - [x] Advanced template customization
 - [x] Resume version history
-- [ ] User authentication
-- [ ] Cloud storage integration
+- [x] User authentication
+- [x] Cloud storage integration
