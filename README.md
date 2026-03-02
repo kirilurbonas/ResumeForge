@@ -269,9 +269,17 @@ npm run dev
 - `POST /api/resume/{id}/interview-questions` - Generate interview questions
 - `POST /api/resume/{id}/interview-answer` - Get suggested answer for a question
 
+#### Authentication
+
+- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/login` - Login and get access token
+- `GET /api/auth/me` - Get current user information (requires auth)
+
 #### System
 
-- `GET /api/health` - Health check
+- `GET /api/health` - Health check (public, no auth required)
+
+**Note**: All resume endpoints require authentication. Include the JWT token in the Authorization header: `Bearer <token>`
 
 Full API documentation available at http://localhost:8000/docs (Swagger UI)
 
