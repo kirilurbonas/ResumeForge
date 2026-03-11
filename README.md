@@ -405,13 +405,18 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - Pull request process
 - Reporting issues
 
-## 🔮 Future Enhancements
+## 🔮 Roadmap
 
-- **Rate limiting**: API rate limits for production
-- **React Router**: URL-based navigation (e.g. `/login`, `/resumes`, `/analysis`)
-- **Tests**: Unit and integration tests for backend and frontend
-- **S3 for outputs**: Store generated PDF/DOCX in cloud storage
-- **Alembic in Docker**: Run migrations automatically in deployment
+**Completed** (see [Project Status](#-project-status) for details): resume parsing, AI analysis, ATS optimization, templates & generation, version management, industry templates, cover letter, interview prep, auth, design system, toasts, migrations, and CI.
+
+**Next (suggested order):** Full list and details in **[ROADMAP.md](ROADMAP.md)**.
+
+1. **Reliability** – Rate limiting, run Alembic in Docker, deeper health checks  
+2. **React Router** – URL-based routes for shareable links and correct 401 flow  
+3. **Backend tests** – pytest + TestClient for API and critical services  
+4. **User value** – S3 for generated files or export analysis as PDF  
+5. **Frontend quality** – Vitest + ESLint in CI  
+6. **UX** – Password reset, dark mode, compare versions, duplicate resume
 
 ## 📝 License
 
@@ -444,7 +449,7 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 
 **Note**: ResumeForge is a portfolio project demonstrating AI-powered resume analysis, full-stack development, and ML integration. For production use, set `JWT_SECRET_KEY`, consider rate limiting, and use PostgreSQL/MySQL with HTTPS.
 
-## 🎯 Roadmap
+## 🎯 Roadmap (done)
 
 - [x] Basic resume parsing (PDF/DOCX)
 - [x] AI-powered analysis
@@ -457,4 +462,5 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 - [x] Advanced template customization
 - [x] Resume version history
 - [x] User authentication
-- [x] Cloud storage integration
+- [x] Design system, toasts, error boundary, accessibility
+- [x] Alembic migrations, JWT from env, CI fixes
