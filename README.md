@@ -409,14 +409,16 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 **Completed** (see [Project Status](#-project-status) for details): resume parsing, AI analysis, ATS optimization, templates & generation, version management, industry templates, cover letter, interview prep, auth, design system, toasts, migrations, and CI.
 
-**Next (suggested order):** Full list and details in **[ROADMAP.md](ROADMAP.md)**.
+**Next (suggested order):**
 
-1. **Reliability** – Rate limiting, run Alembic in Docker, deeper health checks  
+1. **Reliability** – Rate limiting, run Alembic in Docker, deeper health checks, structured logging  
 2. **React Router** – URL-based routes for shareable links and correct 401 flow  
 3. **Backend tests** – pytest + TestClient for API and critical services  
-4. **User value** – S3 for generated files or export analysis as PDF  
-5. **Frontend quality** – Vitest + ESLint in CI  
-6. **UX** – Password reset, dark mode, compare versions, duplicate resume
+4. **User value** – S3 for generated PDF/DOCX or export analysis as PDF  
+5. **Frontend quality** – Vitest + React Testing Library, ESLint in CI  
+6. **UX** – Password reset, dark mode, compare versions, duplicate resume, resume search  
+
+**Also under consideration:** Backend and frontend unit tests, E2E tests (Playwright/Cypress), security headers, refresh tokens, pre-commit hooks, email verification.
 
 ## 📝 License
 
