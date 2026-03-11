@@ -72,12 +72,14 @@ An intelligent resume analysis and optimization system that helps job seekers im
 - **PyPDF2 / python-docx**: Resume parsing and DOC generation
 - **reportlab**: PDF generation
 - **OpenAI API**: LLM for analysis and suggestions
-- **Boto3**: AWS S3 integration for cloud storage
+- **Boto3**: AWS S3 integration for cloud storage (optional; not used for resume persistence by default)
+
+**Data storage:** Uploaded resume files are parsed and stored as structured JSON in the database (SQLite/PostgreSQL). Raw PDF/DOCX files are not persisted; only the extracted content is. S3/cloud storage is available in the codebase for future use (e.g. storing generated PDF/DOCX outputs).
 
 ### Frontend
 - **React + Vite**: UI framework
-- **Axios**: HTTP client
-- **Modern CSS**: Responsive design
+- **Axios**: HTTP client with JWT interceptors
+- **Modern CSS**: Design system (variables, tokens), responsive layout, toast notifications, error boundary
 
 ### Infrastructure
 - **Docker & Docker Compose**: Containerization
@@ -143,7 +145,13 @@ export LLM_MODEL=gpt-3.5-turbo
 export EMBEDDING_MODEL=all-MiniLM-L6-v2
 ```
 
-5. Run the server:
+5. Run database migrations (recommended for new installs or schema updates):
+```bash
+alembic upgrade head
+```
+The app also creates tables on startup if they do not exist.
+
+6. Run the server:
 ```bash
 uvicorn app.main:app --reload
 ```
@@ -180,6 +188,8 @@ npm run dev
 | `VITE_API_URL` | Backend API URL for frontend | `http://localhost:8000/api` |
 | `MAX_FILE_SIZE` | Maximum file upload size in bytes | `10485760` (10MB) |
 | `CORS_ORIGINS` | Comma-separated list of allowed origins | `http://localhost:3000,http://localhost:5173` |
+| `JWT_SECRET_KEY` | Secret key for JWT signing (required in production) | Random per process if unset |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT token lifetime in minutes | `43200` (30 days) |
 | `DATABASE_URL` | Database connection string | `sqlite:///./resumeforge.db` |
 | `STORAGE_TYPE` | Storage type: `local` or `s3` | `local` |
 | `S3_BUCKET_NAME` | AWS S3 bucket name (if using S3) | Required for S3 |
@@ -295,16 +305,21 @@ docker-compose build
 2. **Set production environment variables**:
 ```bash
 # Edit docker-compose.yml or use .env file
-# Ensure OPENAI_API_KEY is set
-# Update CORS_ORIGINS for your domain
+# Required: OPENAI_API_KEY, JWT_SECRET_KEY (use a strong random value)
+# Update CORS_ORIGINS for your frontend domain
 ```
 
-3. **Run in production mode**:
+3. **Run database migrations** (if using Alembic):
+```bash
+cd backend && alembic upgrade head
+```
+
+4. **Run in production mode**:
 ```bash
 docker-compose up -d
 ```
 
-4. **Check service health**:
+5. **Check service health**:
 ```bash
 curl http://localhost:8000/api/health
 ```
@@ -328,25 +343,30 @@ curl http://localhost:8000/api/health
 ResumeForge/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # API routes
-│   │   ├── models/       # Data models
-│   │   ├── services/     # Business logic
+│   │   ├── api/          # API routes (auth, resume, templates)
+│   │   ├── models/       # Pydantic and data models
+│   │   ├── services/     # Business logic (auth, storage, LLM, parser, etc.)
 │   │   └── utils/        # Utilities
-│   ├── templates/        # Resume templates
+│   ├── alembic/          # Database migrations
+│   │   ├── versions/
+│   │   └── env.py
+│   ├── templates/        # Resume templates (JSON)
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/   # React components
-│   │   └── services/     # API clients
+│   │   ├── components/   # React components (auth, resume, UI primitives)
+│   │   ├── context/      # React context (e.g. Toast)
+│   │   ├── hooks/        # Custom hooks (e.g. useToast)
+│   │   ├── services/     # API client
+│   │   └── styles/       # Design system (variables, design-system.css)
 │   ├── package.json
 │   └── Dockerfile
-├── .github/
-│   └── workflows/        # CI/CD workflows
+├── .github/workflows/    # CI (backend lint, frontend build, Docker build)
 ├── docker-compose.yml
 ├── .env.example          # Environment variables template
-├── CONTRIBUTING.md        # Contribution guidelines
-├── LICENSE                # MIT License
+├── CONTRIBUTING.md
+├── LICENSE               # MIT
 └── README.md
 ```
 
@@ -357,15 +377,22 @@ ResumeForge/
 - **Logging**: Structured logging for debugging and monitoring
 - **Error Handling**: Comprehensive error handling with meaningful messages
 
-### Running Tests
+### Running Linters and Builds
 
 ```bash
-# Backend linting
+# Backend: lint and verify imports
 cd backend
 pip install flake8
-flake8 app --max-line-length=100
+flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+flake8 app --max-line-length=100 --exit-zero
+python -c "import app.main; print('Import OK')"
 
-# Frontend build check
+# Database migrations (when schema changes)
+alembic upgrade head
+# Create a new migration after editing app/database models:
+# alembic revision --autogenerate -m "description"
+
+# Frontend: build
 cd frontend
 npm run build
 ```
@@ -380,12 +407,11 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## 🔮 Future Enhancements
 
-- Multiple resume versions management
-- Industry-specific templates
-- Cover letter generation
-- Interview question preparation
-- Advanced template customization
-- Resume version history
+- **Rate limiting**: API rate limits for production
+- **React Router**: URL-based navigation (e.g. `/login`, `/resumes`, `/analysis`)
+- **Tests**: Unit and integration tests for backend and frontend
+- **S3 for outputs**: Store generated PDF/DOCX in cloud storage
+- **Alembic in Docker**: Run migrations automatically in deployment
 
 ## 📝 License
 
@@ -414,7 +440,9 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 
 **Status**: Active Development
 
-**Note**: ResumeForge is a portfolio project demonstrating AI-powered resume analysis, full-stack development, and ML integration. For production use, consider additional security, scalability, and monitoring features.
+**Included**: JWT auth (secret from env), Alembic migrations, design system and responsive UI, toast notifications, error boundary, confirm dialogs, empty states, drag-and-drop upload, accessibility (focus, skip link), and CI (backend lint, frontend build, Docker build).
+
+**Note**: ResumeForge is a portfolio project demonstrating AI-powered resume analysis, full-stack development, and ML integration. For production use, set `JWT_SECRET_KEY`, consider rate limiting, and use PostgreSQL/MySQL with HTTPS.
 
 ## 🎯 Roadmap
 

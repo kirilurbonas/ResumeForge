@@ -2,6 +2,14 @@
   padding: 20px;
 }
 
+.analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
 .analysis-dashboard h2 {
   color: #333;
   margin-bottom: 20px;

@@ -70,10 +70,3 @@ async def root():
         "docs": "/docs",
         "health": "/api/health"
     }
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Log startup information."""
-    logger.info("ResumeForge API starting up...")
-    logger.info(f"API Documentation available at /docs")

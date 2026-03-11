@@ -42,6 +42,10 @@ build/
 # ChromaDB
 chroma_db/
 
+# SQLite database (local dev)
+*.db
+resumeforge.db
+
 # Generated files
 *.docx
 *.pdf

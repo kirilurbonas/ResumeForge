@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { resumeAPI } from '../services/api';
+import { useToast } from '../hooks/useToast';
 import './ResumeGenerator.css';
 
 function ResumeGenerator({ resumeId }) {
@@ -7,6 +8,7 @@ function ResumeGenerator({ resumeId }) {
   const [selectedFormat, setSelectedFormat] = useState('doc');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
+  const { showSuccess, showError } = useToast();
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -25,8 +27,11 @@ function ResumeGenerator({ resumeId }) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      showSuccess('Resume generated successfully');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to generate resume');
+      const message = err.response?.data?.detail || 'Failed to generate resume';
+      setError(message);
+      showError(message);
     } finally {
       setGenerating(false);
     }
@@ -35,13 +40,17 @@ function ResumeGenerator({ resumeId }) {
   return (
     <div className="resume-generator">
       <h3>Generate Resume</h3>
-      
+      <p className="generator-subtitle">
+        Choose a template and format, then download a polished version of your resume.
+      </p>
+
       <div className="generator-controls">
         <div className="control-group">
           <label>Template:</label>
           <select
             value={selectedTemplate}
             onChange={(e) => setSelectedTemplate(e.target.value)}
+            className="select"
             disabled={generating}
           >
             <option value="modern">Modern</option>
@@ -56,6 +65,7 @@ function ResumeGenerator({ resumeId }) {
           <select
             value={selectedFormat}
             onChange={(e) => setSelectedFormat(e.target.value)}
+            className="select"
             disabled={generating}
           >
             <option value="doc">DOCX (Word)</option>
@@ -66,7 +76,7 @@ function ResumeGenerator({ resumeId }) {
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="generate-button"
+          className="generate-button btn btn-primary"
         >
           {generating ? 'Generating...' : 'Generate & Download'}
         </button>

@@ -36,8 +36,10 @@ function Login({ onLogin }) {
             <label>Email</label>
             <input
               type="email"
+              className="input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
               required
               disabled={loading}
             />
@@ -46,14 +48,16 @@ function Login({ onLogin }) {
             <label>Password</label>
             <input
               type="password"
+              className="input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               required
               disabled={loading}
             />
           </div>
           {error && <div className="error-message">{error}</div>}
-          <button type="submit" disabled={loading} className="auth-button">
+          <button type="submit" disabled={loading} className="auth-button btn btn-primary">
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>

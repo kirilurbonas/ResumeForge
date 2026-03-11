@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { resumeAPI } from '../services/api';
 import ATSScore from './ATSScore';
 import SuggestionsPanel from './SuggestionsPanel';
+import LoadingSpinner from './LoadingSpinner';
 import './AnalysisDashboard.css';
 
 function AnalysisDashboard({ resumeId }) {
@@ -27,7 +28,7 @@ function AnalysisDashboard({ resumeId }) {
   };
 
   if (loading) {
-    return <div className="loading">Analyzing resume...</div>;
+    return <LoadingSpinner label="Analyzing resume..." />;
   }
 
   if (error) {
@@ -40,8 +41,17 @@ function AnalysisDashboard({ resumeId }) {
 
   return (
     <div className="analysis-dashboard">
-      <h2>Resume Analysis</h2>
-      
+      <div className="analysis-header">
+        <h2>Resume Analysis</h2>
+        <button
+          type="button"
+          className="btn btn-outline"
+          onClick={loadAnalysis}
+        >
+          Refresh analysis
+        </button>
+      </div>
+
       <ATSScore score={analysis.ats_score} />
 
       <div className="analysis-grid">

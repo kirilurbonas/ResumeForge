@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { resumeAPI } from '../services/api';
+import EmptyState from './EmptyState';
+import { useToast } from '../hooks/useToast';
 import './VersionManager.css';
 
 function VersionManager({ resumeId }) {
@@ -9,6 +11,7 @@ function VersionManager({ resumeId }) {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     loadVersions();
@@ -34,12 +37,14 @@ function VersionManager({ resumeId }) {
       await resumeAPI.createVersion(resumeId, changeDescription || null);
       setChangeDescription('');
       await loadVersions();
-      alert('Version created successfully!');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create version');
+      const message = err.response?.data?.detail || 'Failed to create version';
+      setError(message);
+      showError(message);
     } finally {
       setCreating(false);
     }
+    showSuccess('Version created successfully');
   };
 
   const handleViewVersion = async (version) => {
@@ -89,7 +94,10 @@ function VersionManager({ resumeId }) {
         <h4>Version History</h4>
         {loading && <div className="loading">Loading versions...</div>}
         {!loading && versions.length === 0 && (
-          <div className="no-versions">No versions yet. Create your first version!</div>
+          <EmptyState
+            title="No versions yet"
+            description="Create a new version to capture the current state of your resume."
+          />
         )}
         {versions.length > 0 && (
           <div className="versions-grid">

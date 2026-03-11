@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { templateAPI } from '../services/api';
+import LoadingSpinner from './LoadingSpinner';
+import EmptyState from './EmptyState';
 import './TemplateSelector.css';
 
 function TemplateSelector({ resumeId, onTemplateSelect }) {
@@ -53,7 +55,11 @@ function TemplateSelector({ resumeId, onTemplateSelect }) {
   };
 
   if (loading) {
-    return <div className="loading">Loading templates...</div>;
+    return (
+      <div className="template-selector">
+        <LoadingSpinner label="Loading templates..." />
+      </div>
+    );
   }
 
   return (
@@ -66,6 +72,7 @@ function TemplateSelector({ resumeId, onTemplateSelect }) {
           <select
             value={selectedIndustry}
             onChange={(e) => setSelectedIndustry(e.target.value)}
+            className="select"
           >
             <option value="">All Templates</option>
             {industries.map(industry => (
@@ -77,10 +84,11 @@ function TemplateSelector({ resumeId, onTemplateSelect }) {
         </div>
       )}
 
-      {loading && <div className="loading">Loading templates...</div>}
-      
       {!loading && templates.length === 0 && (
-        <div className="no-templates">No templates found.</div>
+        <EmptyState
+          title="No templates found"
+          description="Try clearing filters or check back later for more templates."
+        />
       )}
 
       {!loading && templates.length > 0 && (

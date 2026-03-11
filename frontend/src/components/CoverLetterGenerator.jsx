@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { resumeAPI } from '../services/api';
+import { useToast } from '../hooks/useToast';
 import './CoverLetterGenerator.css';
 
 function CoverLetterGenerator({ resumeId }) {
@@ -10,6 +11,7 @@ function CoverLetterGenerator({ resumeId }) {
   const [coverLetter, setCoverLetter] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { showSuccess, showError } = useToast();
 
   const handleGenerate = async () => {
     if (!jobDescription.trim()) {
@@ -28,8 +30,11 @@ function CoverLetterGenerator({ resumeId }) {
         length
       );
       setCoverLetter(result);
+      showSuccess('Cover letter generated successfully');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to generate cover letter');
+      const message = err.response?.data?.detail || 'Failed to generate cover letter';
+      setError(message);
+      showError(message);
     } finally {
       setLoading(false);
     }
@@ -52,7 +57,7 @@ function CoverLetterGenerator({ resumeId }) {
   const handleCopy = () => {
     if (!coverLetter) return;
     navigator.clipboard.writeText(coverLetter.cover_letter);
-    alert('Cover letter copied to clipboard!');
+    showSuccess('Cover letter copied to clipboard');
   };
 
   return (
@@ -67,6 +72,7 @@ function CoverLetterGenerator({ resumeId }) {
             onChange={(e) => setJobDescription(e.target.value)}
             placeholder="Paste the job description here..."
             rows="6"
+            className="textarea"
             disabled={loading}
           />
         </div>
@@ -75,6 +81,7 @@ function CoverLetterGenerator({ resumeId }) {
           <label>Company Name (Optional)</label>
           <input
             type="text"
+            className="input"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="e.g., Google, Microsoft"
@@ -88,6 +95,7 @@ function CoverLetterGenerator({ resumeId }) {
             <select
               value={tone}
               onChange={(e) => setTone(e.target.value)}
+              className="select"
               disabled={loading}
             >
               <option value="professional">Professional</option>
@@ -101,6 +109,7 @@ function CoverLetterGenerator({ resumeId }) {
             <select
               value={length}
               onChange={(e) => setLength(e.target.value)}
+              className="select"
               disabled={loading}
             >
               <option value="short">Short (200-250 words)</option>
@@ -113,7 +122,7 @@ function CoverLetterGenerator({ resumeId }) {
         <button
           onClick={handleGenerate}
           disabled={loading || !jobDescription.trim()}
-          className="generate-button"
+          className="generate-button btn btn-primary"
         >
           {loading ? 'Generating...' : 'Generate Cover Letter'}
         </button>

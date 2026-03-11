@@ -72,6 +72,7 @@ function InterviewPrep({ resumeId }) {
             onChange={(e) => setJobDescription(e.target.value)}
             placeholder="Paste the job description here..."
             rows="4"
+            className="textarea"
             disabled={loading}
           />
         </div>
@@ -96,7 +97,7 @@ function InterviewPrep({ resumeId }) {
         <button
           onClick={handleGenerateQuestions}
           disabled={loading || !jobDescription.trim() || questionTypes.length === 0}
-          className="generate-button"
+          className="generate-button btn btn-primary"
         >
           {loading ? 'Generating Questions...' : 'Generate Interview Questions'}
         </button>

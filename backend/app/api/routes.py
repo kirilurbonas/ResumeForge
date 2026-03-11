@@ -354,21 +354,6 @@ async def delete_resume(
     return {"message": "Resume deleted successfully"}
 
 
-@router.get("/templates", response_model=List[TemplateResponse])
-async def list_templates():
-    """List available resume templates."""
-    templates = template_engine.list_templates()
-    return [
-        TemplateResponse(
-            id=t['id'],
-            name=t['name'],
-            description=t['description'],
-            ats_friendly=t.get('ats_friendly', True)
-        )
-        for t in templates
-    ]
-
-
 @router.get("/templates/{template_id}", response_model=TemplateResponse)
 async def get_template(template_id: str):
     """Get template details."""

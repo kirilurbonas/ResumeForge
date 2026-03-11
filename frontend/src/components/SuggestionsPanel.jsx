@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { resumeAPI } from '../services/api';
+import LoadingSpinner from './LoadingSpinner';
+import EmptyState from './EmptyState';
 import './SuggestionsPanel.css';
 
 function SuggestionsPanel({ resumeId }) {
@@ -23,7 +25,7 @@ function SuggestionsPanel({ resumeId }) {
   };
 
   if (loading) {
-    return <div className="loading">Loading suggestions...</div>;
+    return <LoadingSpinner label="Loading suggestions..." size="sm" />;
   }
 
   return (
@@ -31,15 +33,14 @@ function SuggestionsPanel({ resumeId }) {
       <h3>Improvement Suggestions</h3>
       <div className="suggestions-list">
         {suggestions.length === 0 ? (
-          <p>No suggestions available at this time.</p>
+          <EmptyState
+            title="No suggestions yet"
+            description="Run an analysis or provide more details to get personalized suggestions."
+          />
         ) : (
           suggestions.map((suggestion, idx) => (
             <div key={idx} className="suggestion-item">
-              {typeof suggestion === 'string' ? (
-                <p>{suggestion}</p>
-              ) : (
-                <p>{suggestion}</p>
-              )}
+              <p>{suggestion}</p>
             </div>
           ))
         )}

@@ -1,5 +1,8 @@
 """Authentication service."""
 
+import logging
+import os
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -7,18 +10,30 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-import secrets
 
 from app.database import get_db, User
 from app.models.user_model import UserCreate, UserLogin
 
+logger = logging.getLogger(__name__)
+
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# JWT settings
-SECRET_KEY = secrets.token_urlsafe(32)  # Generate random secret key
+# JWT settings: secret from env in production, random fallback in dev
+_env = os.getenv("ENV", "").lower()
+_secret = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY")
+if _secret:
+    SECRET_KEY = _secret
+else:
+    SECRET_KEY = secrets.token_urlsafe(32)
+    if _env == "production":
+        logger.warning("JWT_SECRET_KEY (or SECRET_KEY) not set in production; using random key (tokens will invalidate on restart)")
+    else:
+        logger.warning("JWT_SECRET_KEY not set; using random key (tokens invalidate on restart)")
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30 * 24 * 60  # 30 days
+_access_expire = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(_access_expire) if _access_expire else 30 * 24 * 60  # default 30 days
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")

@@ -10,6 +10,7 @@ import InterviewPrep from './components/InterviewPrep';
 import VersionManager from './components/VersionManager';
 import Login from './components/Login';
 import Register from './components/Register';
+import LoadingOverlay from './components/LoadingOverlay';
 import { resumeAPI, authAPI } from './services/api';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isNavOpen, setIsNavOpen] = useState(true);
 
   useEffect(() => {
     // Check if user is logged in
@@ -58,8 +60,29 @@ function App() {
     setActiveTab('analysis');
   };
 
+  const getTabLabel = () => {
+    switch (activeTab) {
+      case 'resumes':
+        return 'My Resumes';
+      case 'upload':
+        return 'Upload Resume';
+      case 'analysis':
+        return 'Analysis';
+      case 'templates':
+        return 'Templates & Generate';
+      case 'cover-letter':
+        return 'Cover Letter';
+      case 'interview':
+        return 'Interview Prep';
+      case 'versions':
+        return 'Versions';
+      default:
+        return '';
+    }
+  };
+
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return <LoadingOverlay label="Loading your workspace..." />;
   }
 
   if (!user) {
@@ -106,24 +129,31 @@ function App() {
 
   return (
     <div className="app">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <header className="app-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: '1200px', margin: '0 auto' }}>
-          <div>
+        <div className="app-header-inner">
+          <div className="app-header-brand">
             <h1>ResumeForge</h1>
             <p>Analyze, optimize, and generate professional resumes</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <span style={{ color: 'white', fontSize: '14px' }}>Welcome, {user.username}</span>
+          <div className="app-header-actions">
             <button
+              type="button"
+              className="menu-toggle"
+              aria-label="Toggle navigation"
+              aria-expanded={isNavOpen}
+              aria-controls="app-nav"
+              onClick={() => setIsNavOpen((open) => !open)}
+            >
+              ☰
+            </button>
+            <span className="app-header-user">Welcome, {user.username}</span>
+            <button
+              type="button"
               onClick={handleLogout}
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                color: 'white',
-                border: '1px solid white',
-                padding: '8px 16px',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
+              className="btn btn-outline app-header-logout"
             >
               Logout
             </button>
@@ -132,18 +162,27 @@ function App() {
       </header>
 
       <div className="app-container">
-        <nav className="tab-nav">
+        <nav
+          id="app-nav"
+          className={`tab-nav ${isNavOpen ? '' : 'tab-nav--hidden'}`}
+        >
           <button
             className={activeTab === 'resumes' ? 'active' : ''}
             onClick={() => setActiveTab('resumes')}
           >
-            My Resumes
+            <span className="tab-icon" aria-hidden="true">
+              📁
+            </span>
+            <span>My Resumes</span>
           </button>
           <button
             className={activeTab === 'upload' ? 'active' : ''}
             onClick={() => setActiveTab('upload')}
           >
-            Upload Resume
+            <span className="tab-icon" aria-hidden="true">
+              ⬆️
+            </span>
+            <span>Upload Resume</span>
           </button>
           {currentResume && (
             <>
@@ -151,37 +190,61 @@ function App() {
                 className={activeTab === 'analysis' ? 'active' : ''}
                 onClick={() => setActiveTab('analysis')}
               >
-                Analysis
+                <span className="tab-icon" aria-hidden="true">
+                  📊
+                </span>
+                <span>Analysis</span>
               </button>
               <button
                 className={activeTab === 'templates' ? 'active' : ''}
                 onClick={() => setActiveTab('templates')}
               >
-                Templates & Generate
+                <span className="tab-icon" aria-hidden="true">
+                  📄
+                </span>
+                <span>Templates &amp; Generate</span>
               </button>
               <button
                 className={activeTab === 'cover-letter' ? 'active' : ''}
                 onClick={() => setActiveTab('cover-letter')}
               >
-                Cover Letter
+                <span className="tab-icon" aria-hidden="true">
+                  ✉️
+                </span>
+                <span>Cover Letter</span>
               </button>
               <button
                 className={activeTab === 'interview' ? 'active' : ''}
                 onClick={() => setActiveTab('interview')}
               >
-                Interview Prep
+                <span className="tab-icon" aria-hidden="true">
+                  💬
+                </span>
+                <span>Interview Prep</span>
               </button>
               <button
                 className={activeTab === 'versions' ? 'active' : ''}
                 onClick={() => setActiveTab('versions')}
               >
-                Versions
+                <span className="tab-icon" aria-hidden="true">
+                  🕒
+                </span>
+                <span>Versions</span>
               </button>
             </>
           )}
         </nav>
 
-        <main className="app-content">
+        <main id="main-content" className="app-content">
+          <div className="breadcrumbs">
+            <span className="breadcrumbs-root">Home</span>
+            {getTabLabel() && (
+              <>
+                <span className="breadcrumbs-separator">/</span>
+                <span className="breadcrumbs-current">{getTabLabel()}</span>
+              </>
+            )}
+          </div>
           {activeTab === 'resumes' && (
             <ResumeList onResumeSelect={handleResumeSelect} />
           )}

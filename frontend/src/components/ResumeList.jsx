@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { resumeAPI, templateAPI } from '../services/api';
+import LoadingSpinner from './LoadingSpinner';
+import ConfirmDialog from './ConfirmDialog';
+import EmptyState from './EmptyState';
+import { useToast } from '../hooks/useToast';
 import './ResumeList.css';
 
 function ResumeList({ onResumeSelect }) {
@@ -9,6 +13,8 @@ function ResumeList({ onResumeSelect }) {
   const [selectedTag, setSelectedTag] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [resumeToDelete, setResumeToDelete] = useState(null);
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     loadResumes();
@@ -50,18 +56,29 @@ function ResumeList({ onResumeSelect }) {
     }
   };
 
-  const handleDelete = async (resumeId, e) => {
+  const openDeleteDialog = (resume, e) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this resume?')) {
-      return;
-    }
+    setResumeToDelete(resume);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!resumeToDelete) return;
     try {
-      await resumeAPI.delete(resumeId);
+      await resumeAPI.delete(resumeToDelete.id);
+      setResumeToDelete(null);
       await loadResumes();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to delete resume');
+      const message = err.response?.data?.detail || 'Failed to delete resume';
+      setError(message);
+      showError(message);
+      setResumeToDelete(null);
+      return;
     }
+    showSuccess('Resume deleted successfully');
+  };
+
+  const handleCancelDelete = () => {
+    setResumeToDelete(null);
   };
 
   const formatDate = (dateString) => {
@@ -105,12 +122,17 @@ function ResumeList({ onResumeSelect }) {
 
       {error && <div className="error-message">{error}</div>}
 
-      {loading && <div className="loading">Loading resumes...</div>}
+      {loading && (
+        <div className="loading">
+          <LoadingSpinner label="Loading resumes..." />
+        </div>
+      )}
 
       {!loading && resumes.length === 0 && (
-        <div className="no-resumes">
-          No resumes found. Upload your first resume to get started!
-        </div>
+        <EmptyState
+          title="No resumes yet"
+          description="Upload your first resume to start analyzing and optimizing it."
+        />
       )}
 
       {!loading && resumes.length > 0 && (
@@ -124,7 +146,7 @@ function ResumeList({ onResumeSelect }) {
               <div className="resume-header">
                 <h4>{resume.filename}</h4>
                 <button
-                  onClick={(e) => handleDelete(resume.id, e)}
+                  onClick={(e) => openDeleteDialog(resume, e)}
                   className="delete-button"
                   title="Delete resume"
                 >
@@ -160,6 +182,21 @@ function ResumeList({ onResumeSelect }) {
       <div className="resume-count">
         Showing {resumes.length} resume{resumes.length !== 1 ? 's' : ''}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!resumeToDelete}
+        title="Delete resume?"
+        description={
+          resumeToDelete
+            ? `Are you sure you want to delete "${resumeToDelete.filename}"? This action cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }
