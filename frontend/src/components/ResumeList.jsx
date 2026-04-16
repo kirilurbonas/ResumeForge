@@ -11,6 +11,7 @@ function ResumeList({ onResumeSelect }) {
   const [industries, setIndustries] = useState([]);
   const [selectedIndustry, setSelectedIndustry] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [resumeToDelete, setResumeToDelete] = useState(null);
@@ -23,7 +24,7 @@ function ResumeList({ onResumeSelect }) {
 
   useEffect(() => {
     loadResumes();
-  }, [selectedIndustry, selectedTag]);
+  }, [selectedIndustry, selectedTag, searchQuery]);
 
   const loadResumes = async () => {
     setLoading(true);
@@ -31,7 +32,8 @@ function ResumeList({ onResumeSelect }) {
     try {
       const result = await resumeAPI.listResumes(
         selectedIndustry || null,
-        selectedTag || null
+        selectedTag || null,
+        searchQuery.trim() || null
       );
       setResumes(result.resumes || []);
     } catch (err) {
@@ -81,6 +83,21 @@ function ResumeList({ onResumeSelect }) {
     setResumeToDelete(null);
   };
 
+  const handleDuplicate = async (resume, e) => {
+    e.stopPropagation();
+    try {
+      const copy = await resumeAPI.duplicate(resume.id);
+      showSuccess(`Duplicated as "${copy.filename}"`);
+      await loadResumes();
+      if (onResumeSelect) {
+        onResumeSelect(copy);
+      }
+    } catch (err) {
+      const message = err.response?.data?.detail || 'Failed to duplicate resume';
+      showError(message);
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString();
   };
@@ -115,7 +132,19 @@ function ResumeList({ onResumeSelect }) {
           />
         </div>
 
-        <button onClick={loadResumes} className="refresh-button">
+        <div className="filter-group">
+          <label htmlFor="resume-search-q">Search:</label>
+          <input
+            id="resume-search-q"
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filename, name, or tag…"
+            aria-label="Search resumes by filename, contact name, or tag"
+          />
+        </div>
+
+        <button type="button" onClick={loadResumes} className="refresh-button">
           Refresh
         </button>
       </div>
@@ -145,13 +174,24 @@ function ResumeList({ onResumeSelect }) {
             >
               <div className="resume-header">
                 <h4>{resume.filename}</h4>
-                <button
-                  onClick={(e) => openDeleteDialog(resume, e)}
-                  className="delete-button"
-                  title="Delete resume"
-                >
-                  ×
-                </button>
+                <div className="resume-card-actions">
+                  <button
+                    type="button"
+                    onClick={(e) => handleDuplicate(resume, e)}
+                    className="duplicate-button"
+                    title="Duplicate resume"
+                  >
+                    ⧉
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => openDeleteDialog(resume, e)}
+                    className="delete-button"
+                    title="Delete resume"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
               <div className="resume-meta">
                 <div className="meta-item">

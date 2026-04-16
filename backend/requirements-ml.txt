@@ -1,0 +1,7 @@
+# Optional: local sentence embeddings (EmbeddingModel) — not wired into API routes by default.
+# Install with: pip install -r requirements.txt -r requirements-ml.txt
+sentence-transformers==2.2.2
+chromadb==0.4.15
+transformers==4.35.2
+torch==2.1.0
+numpy==1.24.3

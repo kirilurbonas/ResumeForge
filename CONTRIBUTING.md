@@ -30,16 +30,22 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 3. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-4. Set up environment variables:
+4. (Optional) Install [pre-commit](https://pre-commit.com/) from the repository root so Ruff runs on commit:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+5. Set up environment variables:
 ```bash
 cp ../.env.example ../.env
 # Edit .env and add your OPENAI_API_KEY
 ```
 
-5. Run the development server:
+6. Run the development server:
 ```bash
 uvicorn app.main:app --reload
 ```

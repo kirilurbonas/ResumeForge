@@ -21,14 +21,20 @@ jobs:
     - name: Install dependencies
       run: |
         cd backend
-        pip install -r requirements.txt
+        pip install -r requirements.txt -r requirements-dev.txt
     
-    - name: Check code formatting
+    - name: Lint (flake8 fatal + ruff)
       run: |
         cd backend
         pip install flake8
-        flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app --count --select=E9,F63,F7,F82,F821,E722 --show-source --statistics
         flake8 app --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+        python -m ruff check app
+    
+    - name: Run backend tests
+      run: |
+        cd backend
+        pytest tests -v
     
     - name: Verify imports
       run: |
@@ -51,10 +57,20 @@ jobs:
         cd frontend
         npm install
     
+    - name: Lint frontend
+      run: |
+        cd frontend
+        npm run lint
+    
     - name: Build frontend
       run: |
         cd frontend
         npm run build
+    
+    - name: Frontend unit tests
+      run: |
+        cd frontend
+        npm run test
 
   docker-build:
     runs-on: ubuntu-latest

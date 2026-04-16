@@ -2,7 +2,7 @@
 
 from typing import List, Dict, Optional
 from app.models.resume_model import Resume
-from app.services.llm_service import llm_service
+from app.services.llm_service import LLMGenerationError, llm_service
 import logging
 import json
 
@@ -132,8 +132,8 @@ For each category, provide 3-5 relevant questions. Format as JSON with categorie
                 # Try to parse JSON response
                 questions = json.loads(response)
                 return questions
-        except:
-            pass
+        except (LLMGenerationError, json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.debug("LLM interview questions not valid JSON, using template fallback: %s", e)
         # Fallback to template
         return self._generate_template_based(resume, job_description, question_types)
     
@@ -205,8 +205,8 @@ Key Skills: {', '.join([s.name for s in resume.skills[:5]])}
                     "key_points": [],
                     "tips": ["Be specific", "Use examples from your experience"]
                 }
-        except:
-            pass
+        except (LLMGenerationError, TypeError, ValueError, AttributeError) as e:
+            logger.debug("LLM answer generation failed, using template: %s", e)
         return self._generate_answer_template(resume, question)
     
     def _generate_answer_template(self, resume: Resume, question: str) -> Dict:

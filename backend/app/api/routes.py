@@ -1,14 +1,16 @@
 """API routes for the resume assistant system."""
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Form
-from fastapi.responses import Response, StreamingResponse
-from typing import List, Optional
-from pydantic import BaseModel, Field
-import os
 import logging
+import os
+import uuid
 from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
 
-from fastapi import Depends
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.services.resume_parser import ResumeParser
@@ -20,10 +22,15 @@ from app.services.format_optimizer import FormatOptimizer
 from app.services.resume_generator import ResumeGenerator
 from app.services.template_engine import TemplateEngine
 from app.services.db_storage import DatabaseStorage
-from app.services.llm_service import initialize_llm_service, llm_service
+from app.services.llm_service import (
+    LLMGenerationError,
+    initialize_llm_service,
+    llm_service,
+)
 from app.services.cover_letter_generator import CoverLetterGenerator
 from app.services.interview_prep import InterviewPrepService
 from app.database import get_db, User
+from app.limiter import limiter
 from app.services.auth_service import get_current_user
 
 # Configure logging
@@ -32,6 +39,15 @@ logger = logging.getLogger(__name__)
 # Constants
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 10 * 1024 * 1024))  # 10MB default
 ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.doc'}
+
+
+def _duplicate_filename(filename: str) -> str:
+    """Build a non-colliding-style filename for a duplicated resume."""
+    p = Path(filename)
+    ext = p.suffix
+    base = p.stem if ext else filename
+    return f"{base} (copy){ext}" if ext else f"{base} (copy)"
+
 
 # Initialize services
 resume_parser = ResumeParser()
@@ -129,13 +145,26 @@ class TemplateCustomizeRequest(BaseModel):
 
 
 @router.get("/health")
-async def health_check():
-    """Health check endpoint (public, no auth required)."""
-    return {"status": "healthy", "service": "resume-forge"}
+async def health_check(db: Session = Depends(get_db)):
+    """Health check with database connectivity (public, no auth required)."""
+    db_ok = True
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        logger.warning("Health DB check failed: %s", e)
+        db_ok = False
+    overall = "ok" if db_ok else "degraded"
+    return {
+        "status": overall,
+        "service": "resume-forge",
+        "checks": {"database": db_ok},
+    }
 
 
 @router.post("/resume/upload", response_model=ResumeResponse)
+@limiter.limit("30/minute")
 async def upload_resume(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
@@ -188,7 +217,7 @@ async def upload_resume(
             id=resume.id,
             filename=resume.filename,
             uploaded_at=resume.uploaded_at.isoformat(),
-            contact_info=resume.contact_info.dict(),
+            contact_info=resume.contact_info.model_dump(),
             summary=resume.summary,
             experience_count=len(resume.experience),
             education_count=len(resume.education),
@@ -219,17 +248,55 @@ async def get_resume(
         "id": resume.id,
         "filename": resume.filename,
         "uploaded_at": resume.uploaded_at.isoformat(),
-        "contact_info": resume.contact_info.dict(),
+        "contact_info": resume.contact_info.model_dump(),
         "summary": resume.summary,
-        "experience": [exp.dict() for exp in resume.experience],
-        "education": [edu.dict() for edu in resume.education],
-        "skills": [skill.dict() for skill in resume.skills],
-        "certifications": [cert.dict() for cert in resume.certifications]
+        "experience": [exp.model_dump() for exp in resume.experience],
+        "education": [edu.model_dump() for edu in resume.education],
+        "skills": [skill.model_dump() for skill in resume.skills],
+        "certifications": [cert.model_dump() for cert in resume.certifications],
     }
 
 
+@router.post("/resume/{resume_id}/duplicate", response_model=ResumeResponse)
+@limiter.limit("15/minute")
+async def duplicate_resume(
+    request: Request,
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    storage: DatabaseStorage = Depends(get_storage),
+):
+    """Create a copy of an existing resume with a new id."""
+    src = storage.get(resume_id, current_user.id)
+    if not src:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    new_resume = src.model_copy(
+        deep=True,
+        update={
+            "id": str(uuid.uuid4()),
+            "filename": _duplicate_filename(src.filename),
+            "uploaded_at": datetime.utcnow(),
+            "version": 1,
+            "versions": [],
+        },
+    )
+    saved = storage.save(new_resume, current_user.id)
+    return ResumeResponse(
+        id=saved.id,
+        filename=saved.filename,
+        uploaded_at=saved.uploaded_at.isoformat(),
+        contact_info=saved.contact_info.model_dump(),
+        summary=saved.summary,
+        experience_count=len(saved.experience),
+        education_count=len(saved.education),
+        skills_count=len(saved.skills),
+    )
+
+
 @router.post("/resume/{resume_id}/analyze", response_model=AnalysisResponse)
+@limiter.limit("60/minute")
 async def analyze_resume(
+    request: Request,
     resume_id: str,
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
@@ -255,9 +322,11 @@ async def analyze_resume(
 
 
 @router.post("/resume/{resume_id}/ats-optimize")
+@limiter.limit("40/minute")
 async def optimize_ats(
+    request: Request,
     resume_id: str,
-    request: ATSOptimizeRequest,
+    body: ATSOptimizeRequest,
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
 ):
@@ -267,16 +336,18 @@ async def optimize_ats(
         raise HTTPException(status_code=404, detail="Resume not found")
     
     try:
-        result = ats_optimizer.optimize(resume, request.job_description)
+        result = ats_optimizer.optimize(resume, body.job_description)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error optimizing resume: {str(e)}")
 
 
 @router.post("/resume/{resume_id}/match-job")
+@limiter.limit("20/minute")
 async def match_job(
+    request: Request,
     resume_id: str,
-    request: JobMatchRequest,
+    body: JobMatchRequest,
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
 ):
@@ -286,7 +357,7 @@ async def match_job(
         raise HTTPException(status_code=404, detail="Resume not found")
     
     # Validate job description
-    if not request.job_description or len(request.job_description.strip()) < 10:
+    if not body.job_description or len(body.job_description.strip()) < 10:
         raise HTTPException(
             status_code=400,
             detail="Job description must be at least 10 characters long"
@@ -294,7 +365,7 @@ async def match_job(
     
     try:
         logger.info(f"Matching resume {resume_id} to job description")
-        result = job_matcher.match(resume, request.job_description)
+        result = job_matcher.match(resume, body.job_description)
         return result
     except Exception as e:
         logger.error(f"Error matching resume: {e}", exc_info=True)
@@ -302,7 +373,9 @@ async def match_job(
 
 
 @router.get("/resume/{resume_id}/suggestions")
+@limiter.limit("30/minute")
 async def get_suggestions(
+    request: Request,
     resume_id: str,
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
@@ -318,15 +391,20 @@ async def get_suggestions(
         
         # Get LLM suggestions if available
         suggestions = []
+        llm_error = None
         if llm_service:
             try:
                 llm_suggestions = await llm_service.generate_suggestions(
                     resume.raw_text or "",
-                    analysis
+                    analysis,
                 )
                 suggestions.append(llm_suggestions)
+            except LLMGenerationError as e:
+                logger.warning("LLM suggestions unavailable: %s", e)
+                llm_error = {"code": e.code, "message": e.message}
             except Exception as e:
-                logger.warning(f"Error getting LLM suggestions: {e}")
+                logger.warning("Error getting LLM suggestions: %s", e)
+                llm_error = {"code": "llm_error", "message": str(e)}
         
         # Add format optimizer suggestions
         format_suggestions = format_optimizer.get_formatting_suggestions(resume)
@@ -335,7 +413,8 @@ async def get_suggestions(
         return {
             "resume_id": resume_id,
             "suggestions": suggestions,
-            "analysis": analysis
+            "analysis": analysis,
+            "llm_error": llm_error,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting suggestions: {str(e)}")
@@ -476,7 +555,7 @@ async def list_versions(
     
     return {
         "resume_id": resume_id,
-        "versions": [v.dict() for v in versions]
+        "versions": [v.model_dump() for v in versions],
     }
 
 
@@ -497,12 +576,12 @@ async def get_version(
         "filename": resume_version.filename,
         "version": resume_version.version,
         "uploaded_at": resume_version.uploaded_at.isoformat(),
-        "contact_info": resume_version.contact_info.dict(),
+        "contact_info": resume_version.contact_info.model_dump(),
         "summary": resume_version.summary,
-        "experience": [exp.dict() for exp in resume_version.experience],
-        "education": [edu.dict() for edu in resume_version.education],
-        "skills": [skill.dict() for skill in resume_version.skills],
-        "certifications": [cert.dict() for cert in resume_version.certifications]
+        "experience": [exp.model_dump() for exp in resume_version.experience],
+        "education": [edu.model_dump() for edu in resume_version.education],
+        "skills": [skill.model_dump() for skill in resume_version.skills],
+        "certifications": [cert.model_dump() for cert in resume_version.certifications],
     }
 
 
@@ -540,16 +619,20 @@ async def update_resume(
 async def list_resumes(
     industry: Optional[str] = None,
     tag: Optional[str] = None,
+    q: Optional[str] = Query(
+        None,
+        description="Search filename, contact name, or tags (case-insensitive)",
+    ),
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
 ):
-    """List all resumes, optionally filtered by industry or tag."""
-    if industry:
-        resumes = storage.list_by_industry(industry, current_user.id)
-    elif tag:
-        resumes = storage.list_by_tag(tag, current_user.id)
-    else:
-        resumes = storage.list_all(current_user.id)
+    """List all resumes with optional industry, tag, and text search."""
+    resumes = storage.list_for_user(
+        current_user.id,
+        industry=industry,
+        tag=tag,
+        search=q,
+    )
     
     return {
         "count": len(resumes),
@@ -569,9 +652,11 @@ async def list_resumes(
 
 # Cover Letter Endpoints
 @router.post("/resume/{resume_id}/cover-letter")
+@limiter.limit("20/minute")
 async def generate_cover_letter(
+    request: Request,
     resume_id: str,
-    request: CoverLetterRequest,
+    body: CoverLetterRequest,
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
 ):
@@ -583,10 +668,10 @@ async def generate_cover_letter(
     try:
         result = cover_letter_generator.generate(
             resume=resume,
-            job_description=request.job_description,
-            company_name=request.company_name,
-            tone=request.tone,
-            length=request.length
+            job_description=body.job_description,
+            company_name=body.company_name,
+            tone=body.tone,
+            length=body.length
         )
         return {
             "resume_id": resume_id,
@@ -599,9 +684,11 @@ async def generate_cover_letter(
 
 # Interview Preparation Endpoints
 @router.post("/resume/{resume_id}/interview-questions")
+@limiter.limit("20/minute")
 async def generate_interview_questions(
+    request: Request,
     resume_id: str,
-    request: InterviewQuestionsRequest,
+    body: InterviewQuestionsRequest,
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
 ):
@@ -613,8 +700,8 @@ async def generate_interview_questions(
     try:
         result = interview_prep_service.generate_questions(
             resume=resume,
-            job_description=request.job_description,
-            question_types=request.question_types
+            job_description=body.job_description,
+            question_types=body.question_types
         )
         return result
     except Exception as e:
@@ -623,9 +710,11 @@ async def generate_interview_questions(
 
 
 @router.post("/resume/{resume_id}/interview-answer")
+@limiter.limit("30/minute")
 async def generate_answer(
+    request: Request,
     resume_id: str,
-    request: AnswerRequest,
+    body: AnswerRequest,
     current_user: User = Depends(get_current_user),
     storage: DatabaseStorage = Depends(get_storage)
 ):
@@ -637,8 +726,8 @@ async def generate_answer(
     try:
         result = interview_prep_service.generate_answer_suggestions(
             resume=resume,
-            question=request.question,
-            job_description=request.job_description
+            question=body.question,
+            job_description=body.job_description
         )
         return result
     except Exception as e:

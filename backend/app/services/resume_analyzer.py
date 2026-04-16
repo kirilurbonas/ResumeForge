@@ -1,8 +1,12 @@
 """Resume analyzer service for strengths/weaknesses detection and metrics."""
 
+import logging
 import re
+from datetime import date
 from typing import List, Dict
 from app.models.resume_model import Resume
+
+logger = logging.getLogger(__name__)
 
 
 class ResumeAnalyzer:
@@ -62,15 +66,19 @@ class ResumeAnalyzer:
     
     def _calculate_metrics(self, resume: Resume) -> Dict:
         """Calculate various metrics about the resume."""
+        current_year = date.today().year
         total_experience_years = 0
         for exp in resume.experience:
             try:
                 start_year = int(exp.start_date[:4]) if len(exp.start_date) >= 4 else 0
-                end_year = int(exp.end_date[:4]) if exp.end_date and len(exp.end_date) >= 4 else 2024
+                if exp.current or not exp.end_date:
+                    end_year = current_year
+                else:
+                    end_year = int(exp.end_date[:4]) if len(exp.end_date) >= 4 else current_year
                 if start_year > 0:
                     total_experience_years += (end_year - start_year)
-            except:
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Skipping experience tenure row: %s", e)
         
         # Count quantifiable achievements
         quantifiable_count = 0

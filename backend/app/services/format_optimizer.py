@@ -166,7 +166,7 @@ class FormatOptimizer:
                     if current_year > 0 and next_year > 0 and current_year < next_year:
                         dates_valid = False
                         break
-                except:
+                except (ValueError, TypeError, IndexError):
                     pass
             
             if not dates_valid:

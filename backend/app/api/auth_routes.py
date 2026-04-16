@@ -1,10 +1,12 @@
 """Authentication routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from datetime import timedelta
 
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
+
 from app.database import get_db
+from app.limiter import limiter
 from app.models.user_model import UserCreate, UserLogin, UserResponse, Token
 from app.services.auth_service import (
     create_user,
@@ -19,7 +21,8 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+async def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user."""
     try:
         user = create_user(db, user_data)
@@ -40,7 +43,8 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-async def login(user_data: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+async def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db)):
     """Login and get access token."""
     user = authenticate_user(db, user_data.email, user_data.password)
     if not user:

@@ -35,30 +35,30 @@ An intelligent resume analysis and optimization system that helps job seekers im
 ┌─────────────┐
 │   Backend   │  FastAPI Application
 │  (FastAPI)  │  - REST API
-└──────┬──────┘  - Resume Processing
+└──────┬──────┘  - Resume parsing & heuristics
        │
-       ├─────────┐
-       │         │
-       ▼         ▼
-┌──────────┐  ┌──────────────┐
-│ Resume   │  │   Embedding  │
-│ Parser   │  │    Model     │
-└────┬─────┘  └──────┬───────┘
-     │               │
-     │               ▼
-     │         ┌──────────────┐
-     │         │ Vector Store │
-     │         │  (ChromaDB)  │
-     │         └──────┬───────┘
-     │                │
-     └────────────────┘
-              │
-              ▼
-       ┌──────────────┐
-       │  LLM Service │
-       │ (OpenAI/Local)│
-       └──────────────┘
+       ├──────────────┐
+       ▼              ▼
+┌──────────────┐  ┌──────────────┐
+│ ResumeParser │  │ Heuristic    │
+│ (PDF/DOCX)   │  │ analyzers    │
+└──────┬───────┘  └──────┬───────┘
+       │                 │
+       └────────┬────────┘
+                ▼
+         ┌──────────────┐
+         │  SQL DB      │
+         │ (resume JSON)│
+         └──────┬───────┘
+                │
+                ▼
+         ┌──────────────┐
+         │  LLM Service │
+         │   (OpenAI)   │
+         └──────────────┘
 ```
+
+Optional local embeddings (sentence-transformers / PyTorch) are available as an **extra** install for experimentation; they are not required for the default API. See `backend/requirements-ml.txt`.
 
 ## 🛠️ Tech Stack
 
@@ -67,14 +67,14 @@ An intelligent resume analysis and optimization system that helps job seekers im
 - **SQLAlchemy**: Database ORM (SQLite for development, PostgreSQL/MySQL for production)
 - **JWT**: Authentication with python-jose
 - **Bcrypt**: Password hashing
-- **sentence-transformers**: For resume/job description embeddings
-- **ChromaDB**: Vector database for semantic matching
 - **PyPDF2 / python-docx**: Resume parsing and DOC generation
 - **reportlab**: PDF generation
 - **OpenAI API**: LLM for analysis and suggestions
 - **Boto3**: AWS S3 integration for cloud storage (optional; not used for resume persistence by default)
 
 **Data storage:** Uploaded resume files are parsed and stored as structured JSON in the database (SQLite/PostgreSQL). Raw PDF/DOCX files are not persisted; only the extracted content is. S3/cloud storage is available in the codebase for future use (e.g. storing generated PDF/DOCX outputs).
+
+**Optional ML stack:** For local embedding experiments, install `backend/requirements-ml.txt` in addition to `requirements.txt` (adds PyTorch, sentence-transformers, ChromaDB). The default HTTP API uses keyword/heuristic analysis plus OpenAI for optional LLM features.
 
 ### Frontend
 - **React + Vite**: UI framework
@@ -135,14 +135,17 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
+# For tests and CI-style checks:
+pip install -r requirements-dev.txt
+# Optional local embeddings / PyTorch (not required for the API):
+# pip install -r requirements-ml.txt
 ```
 
 4. Set environment variables:
 ```bash
 export OPENAI_API_KEY=your_api_key_here
 export LLM_PROVIDER=openai
-export LLM_MODEL=gpt-3.5-turbo
-export EMBEDDING_MODEL=all-MiniLM-L6-v2
+export LLM_MODEL=gpt-4o-mini
 ```
 
 5. Run database migrations (recommended for new installs or schema updates):
@@ -183,8 +186,9 @@ npm run dev
 |----------|-------------|---------|
 | `OPENAI_API_KEY` | OpenAI API key for LLM | Required |
 | `LLM_PROVIDER` | LLM provider: `openai` | `openai` |
-| `LLM_MODEL` | Model name (e.g., `gpt-3.5-turbo`) | `gpt-3.5-turbo` |
-| `EMBEDDING_MODEL` | Embedding model name | `all-MiniLM-L6-v2` |
+| `LLM_MODEL` | OpenAI chat model (e.g., `gpt-4o-mini`) | `gpt-4o-mini` |
+| `OPENAI_TIMEOUT_SECONDS` | Timeout for OpenAI HTTP calls | `60` |
+| `EMBEDDING_MODEL` | Only if using `requirements-ml.txt` / `EmbeddingModel` | `all-MiniLM-L6-v2` |
 | `VITE_API_URL` | Backend API URL for frontend | `http://localhost:8000/api` |
 | `MAX_FILE_SIZE` | Maximum file upload size in bytes | `10485760` (10MB) |
 | `CORS_ORIGINS` | Comma-separated list of allowed origins | `http://localhost:3000,http://localhost:5173` |
@@ -377,25 +381,29 @@ ResumeForge/
 - **Logging**: Structured logging for debugging and monitoring
 - **Error Handling**: Comprehensive error handling with meaningful messages
 
-### Running Linters and Builds
+### Running Linters, Tests, and Builds
 
 ```bash
-# Backend: lint and verify imports
+# Backend
 cd backend
-pip install flake8
-flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
-flake8 app --max-line-length=100 --exit-zero
+pip install -r requirements.txt -r requirements-dev.txt
+python -m ruff check app
+python -m pytest tests -v
 python -c "import app.main; print('Import OK')"
 
 # Database migrations (when schema changes)
 alembic upgrade head
-# Create a new migration after editing app/database models:
 # alembic revision --autogenerate -m "description"
 
-# Frontend: build
+# Frontend
 cd frontend
+npm install
+npm run lint
+npm run test
 npm run build
 ```
+
+Optional [pre-commit](https://pre-commit.com/) (repo root): `pip install pre-commit && pre-commit install` — runs Ruff on `backend/app/` before commit.
 
 ### Contributing
 
@@ -409,16 +417,16 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 **Completed** (see [Project Status](#-project-status) for details): resume parsing, AI analysis, ATS optimization, templates & generation, version management, industry templates, cover letter, interview prep, auth, design system, toasts, migrations, and CI.
 
+**Recently shipped:** Rate limiting (SlowAPI) on auth and heavy resume routes, security + `X-Request-ID` response headers, health check with DB probe, Docker entrypoint running `alembic upgrade head`, resume **duplicate** API, **search** query (`q`) on `/api/resumes`, frontend duplicate control + search field, `.pre-commit-config.yaml` (Ruff on `backend/app`).
+
 **Next (suggested order):**
 
-1. **Reliability** – Rate limiting, run Alembic in Docker, deeper health checks, structured logging  
-2. **React Router** – URL-based routes for shareable links and correct 401 flow  
-3. **Backend tests** – pytest + TestClient for API and critical services  
-4. **User value** – S3 for generated PDF/DOCX or export analysis as PDF  
-5. **Frontend quality** – Vitest + React Testing Library, ESLint in CI  
-6. **UX** – Password reset, dark mode, compare versions, duplicate resume, resume search  
+1. **Reliability** – Structured JSON logging, optional Redis-backed rate limits for multi-instance deploys  
+2. **User value** – S3 for generated PDF/DOCX or export analysis as PDF  
+3. **UX** – Password reset, dark mode, compare versions side-by-side  
+4. **Quality** – E2E tests (Playwright/Cypress), refresh tokens, email verification  
 
-**Also under consideration:** Backend and frontend unit tests, E2E tests (Playwright/Cypress), security headers, refresh tokens, pre-commit hooks, email verification.
+**Also under consideration:** CSP hardening, pre-commit ESLint hook (optional), deeper observability (OpenTelemetry).
 
 ## 📝 License
 
@@ -435,7 +443,7 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 ## 🙏 Acknowledgments
 
 - Built with [FastAPI](https://fastapi.tiangolo.com/)
-- Embeddings powered by [sentence-transformers](https://www.sbert.net/)
+- Optional local embeddings via [sentence-transformers](https://www.sbert.net/) (`requirements-ml.txt`)
 - UI framework: [React](https://react.dev/)
 - Resume generation: [python-docx](https://python-docx.readthedocs.io/) and [reportlab](https://www.reportlab.com/)
 
@@ -447,7 +455,7 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 
 **Status**: Active Development
 
-**Included**: JWT auth (secret from env), Alembic migrations, design system and responsive UI, toast notifications, error boundary, confirm dialogs, empty states, drag-and-drop upload, accessibility (focus, skip link), and CI (backend lint, frontend build, Docker build).
+**Included**: JWT auth (secret from env), Alembic migrations (also on container start via `docker-entrypoint.sh`), design system and responsive UI, toast notifications, error boundary, confirm dialogs, empty states, drag-and-drop upload, accessibility (focus, skip link), shareable resume URLs (`/r/:id?tab=…`), resume search + duplicate, baseline security response headers, rate limits on sensitive endpoints, and CI (backend pytest + ruff/flake8, frontend lint + Vitest + build, Docker build).
 
 **Note**: ResumeForge is a portfolio project demonstrating AI-powered resume analysis, full-stack development, and ML integration. For production use, set `JWT_SECRET_KEY`, consider rate limiting, and use PostgreSQL/MySQL with HTTPS.
 

@@ -1,13 +1,17 @@
 """Database-backed storage for resumes."""
 
-from typing import Dict, Optional, List
+from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
-import json
 import uuid
 
 from app.models.resume_model import Resume, ResumeVersion
 from app.database import ResumeDB, ResumeVersionDB
+
+
+def _resume_to_storage_dict(resume: Resume) -> dict:
+    """JSON-serializable dict for SQLAlchemy JSON columns (Pydantic v2)."""
+    return resume.model_dump(mode="json")
 
 
 class DatabaseStorage:
@@ -31,13 +35,13 @@ class DatabaseStorage:
                     version=resume.version,
                     created_at=datetime.utcnow(),
                     changes=change_description,
-                    resume_data=json.loads(resume.json())
+                    resume_data=_resume_to_storage_dict(resume)
                 )
                 self.db.add(version)
                 resume.version = resume.version + 1
             
             # Update resume data
-            db_resume.resume_data = json.loads(resume.json())
+            db_resume.resume_data = _resume_to_storage_dict(resume)
             db_resume.version = resume.version
             db_resume.industry = resume.industry
             db_resume.tags = resume.tags if resume.tags else []
@@ -48,7 +52,7 @@ class DatabaseStorage:
                 user_id=user_id,
                 filename=resume.filename,
                 uploaded_at=resume.uploaded_at,
-                resume_data=json.loads(resume.json()),
+                resume_data=_resume_to_storage_dict(resume),
                 version=resume.version,
                 industry=resume.industry,
                 tags=resume.tags if resume.tags else []
@@ -119,7 +123,7 @@ class DatabaseStorage:
             version=resume.version,
             created_at=datetime.utcnow(),
             changes="Current version",
-            resume_data=json.loads(resume.json())
+            resume_data=_resume_to_storage_dict(resume),
         ))
         
         return versions
@@ -152,12 +156,39 @@ class DatabaseStorage:
     
     def list_all(self, user_id: Optional[str] = None) -> List[Resume]:
         """List all resumes."""
+        return self.list_for_user(user_id)
+
+    def list_for_user(
+        self,
+        user_id: Optional[str] = None,
+        industry: Optional[str] = None,
+        tag: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> List[Resume]:
+        """List resumes with optional industry, tag, and text search (filename, name, tags)."""
         query = self.db.query(ResumeDB)
         if user_id:
             query = query.filter(ResumeDB.user_id == user_id)
-        
-        db_resumes = query.all()
-        return [self._db_to_resume(db_r) for db_r in db_resumes]
+        if industry:
+            query = query.filter(ResumeDB.industry == industry)
+
+        resumes = [self._db_to_resume(db_r) for db_r in query.all()]
+
+        if tag:
+            tag_lower = tag.lower()
+            resumes = [r for r in resumes if any(tag_lower in (t or "").lower() for t in (r.tags or []))]
+
+        if search:
+            q = search.lower()
+            resumes = [
+                r
+                for r in resumes
+                if q in r.filename.lower()
+                or q in (r.contact_info.name or "").lower()
+                or any(q in (t or "").lower() for t in (r.tags or []))
+            ]
+
+        return resumes
     
     def list_by_industry(self, industry: str, user_id: Optional[str] = None) -> List[Resume]:
         """List resumes filtered by industry."""

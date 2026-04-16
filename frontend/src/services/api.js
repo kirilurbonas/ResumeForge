@@ -97,11 +97,17 @@ export const resumeAPI = {
     return response.data;
   },
 
-  listResumes: async (industry = null, tag = null) => {
+  listResumes: async (industry = null, tag = null, q = null) => {
     const params = {};
     if (industry) params.industry = industry;
     if (tag) params.tag = tag;
+    if (q) params.q = q;
     const response = await api.get('/resumes', { params });
+    return response.data;
+  },
+
+  duplicate: async (resumeId) => {
+    const response = await api.post(`/resume/${resumeId}/duplicate`, {});
     return response.data;
   },
 

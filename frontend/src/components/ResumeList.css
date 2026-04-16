@@ -114,6 +114,33 @@
   word-break: break-word;
 }
 
+.resume-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: flex-start;
+}
+
+.duplicate-button {
+  background: #95a5a6;
+  color: white;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s;
+}
+
+.duplicate-button:hover {
+  background: #7f8c8d;
+}
+
 .delete-button {
   background: #e74c3c;
   color: white;

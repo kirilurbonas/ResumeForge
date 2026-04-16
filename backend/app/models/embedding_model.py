@@ -1,4 +1,7 @@
-"""Embedding model wrapper."""
+"""Embedding model wrapper (optional).
+
+Requires ``pip install -r requirements-ml.txt``. Not imported by default API routes.
+"""
 
 from sentence_transformers import SentenceTransformer
 import os
